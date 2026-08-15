@@ -1,0 +1,18 @@
+FROM golang:1.26.6-alpine AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/fibrex-api ./cmd/server \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/fibrex-users ./cmd/users
+
+FROM alpine:3.23
+RUN apk add --no-cache ca-certificates tzdata \
+    && addgroup -S fibrex \
+    && adduser -S -G fibrex fibrex
+WORKDIR /app
+COPY --from=build /out/fibrex-api /out/fibrex-users /app/
+USER fibrex
+EXPOSE 8080
+ENTRYPOINT ["/app/fibrex-api"]

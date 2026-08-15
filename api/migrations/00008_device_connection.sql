@@ -1,0 +1,2 @@
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS current_ssid TEXT;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS connection_type TEXT;

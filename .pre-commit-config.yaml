@@ -1,0 +1,43 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sensitive-files
+        name: reject sensitive files
+        entry: bash scripts/check-sensitive-files.sh
+        language: system
+        pass_filenames: false
+
+      - id: go-format
+        name: check Go formatting
+        entry: bash scripts/check-go-format.sh
+        language: system
+        files: ^api/.*\.go$
+        pass_filenames: false
+
+      - id: go-test
+        name: run Go tests
+        entry: bash -c 'cd api && go test ./...'
+        language: system
+        files: ^api/(.*\.go|go\.(mod|sum))$
+        pass_filenames: false
+
+      - id: frontend-lint
+        name: lint frontend
+        entry: bash -c 'cd web && npm run lint'
+        language: system
+        files: ^web/.*\.(js|jsx|ts|tsx|json|css)$
+        pass_filenames: false
+
+      - id: frontend-typecheck
+        name: type-check frontend
+        entry: bash -c 'cd web && npm run typecheck'
+        language: system
+        files: ^web/.*\.(ts|tsx|json)$
+        pass_filenames: false
+
+      - id: compose-config
+        name: validate Docker Compose
+        entry: docker compose config --quiet
+        language: system
+        files: ^(docker-compose\.yml|\.env\.example|api/Dockerfile\..*|web/Dockerfile|web/nginx\.conf)$
+        pass_filenames: false

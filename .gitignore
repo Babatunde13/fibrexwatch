@@ -1,0 +1,10 @@
+.env
+.DS_Store
+api/bin/
+api/logs/
+api/run/
+api/server
+web/node_modules/
+web/dist/
+coverage/
+backups/
