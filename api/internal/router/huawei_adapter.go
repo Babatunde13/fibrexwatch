@@ -108,20 +108,26 @@ func (h *HuaweiAdapter) HasCredentials() bool {
 	return h.username != "" && h.password != ""
 }
 
-// Authenticate establishes one router session per process. It deliberately
-// does not retry because the MTN firmware locks login after repeated failures.
+// Authenticate establishes one router session per process. Permanent
+// authentication failures are cached to avoid triggering the MTN firmware's
+// login lockout. Transient failures are retried by the collector, whose
+// collection schedule provides bounded backoff.
 func (h *HuaweiAdapter) Authenticate(ctx context.Context) error {
 	h.authMu.Lock()
 	defer h.authMu.Unlock()
 	if h.authenticated {
 		return nil
 	}
-	if h.authErr != nil {
+	if isPermanentAuthenticationError(h.authErr) {
 		return h.authErr
 	}
 	h.authErr = h.authenticate(ctx)
 	h.authenticated = h.authErr == nil
 	return h.authErr
+}
+
+func isPermanentAuthenticationError(err error) bool {
+	return errors.Is(err, ErrCredentialsRequired) || errors.Is(err, ErrAuthenticationFailed)
 }
 
 func (h *HuaweiAdapter) reauthenticate(ctx context.Context) error {

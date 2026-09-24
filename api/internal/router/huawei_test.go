@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -84,6 +85,67 @@ func TestHuaweiAuthenticateRequiresCredentials(t *testing.T) {
 	}
 	if err := adapter.Authenticate(context.Background()); err != ErrCredentialsRequired {
 		t.Fatalf("error = %v, want ErrCredentialsRequired", err)
+	}
+}
+
+func TestHuaweiAuthenticateRetriesTransientFailure(t *testing.T) {
+	adapter, err := NewHuaweiAdapter("http://router.test", false, "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tokenCalls int
+	adapter.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		body := ""
+		switch r.URL.Path {
+		case "/asp/GetRandCount.asp":
+			tokenCalls++
+			if tokenCalls == 1 {
+				return nil, errors.New("network unavailable")
+			}
+			body = "test-token"
+		case "/login.cgi":
+		case "/index.asp":
+		default:
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("not found")), Request: r}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+	})
+
+	if err := adapter.Authenticate(context.Background()); err == nil {
+		t.Fatal("expected transient authentication failure")
+	}
+	if err := adapter.Authenticate(context.Background()); err != nil {
+		t.Fatalf("retry authentication: %v", err)
+	}
+	if tokenCalls != 2 {
+		t.Fatalf("token calls = %d, want 2", tokenCalls)
+	}
+}
+
+func TestHuaweiAuthenticateCachesPermanentFailure(t *testing.T) {
+	adapter, err := NewHuaweiAdapter("http://router.test", false, "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requestCalls int
+	adapter.client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		requestCalls++
+		body := "test-token"
+		if r.URL.Path == "/login.cgi" {
+			body = `LoginFailedFlag = '1'`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body)), Request: r}, nil
+	})
+
+	if err := adapter.Authenticate(context.Background()); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("first error = %v, want ErrAuthenticationFailed", err)
+	}
+	firstRequestCount := requestCalls
+	if err := adapter.Authenticate(context.Background()); !errors.Is(err, ErrAuthenticationFailed) {
+		t.Fatalf("second error = %v, want ErrAuthenticationFailed", err)
+	}
+	if requestCalls != firstRequestCount {
+		t.Fatalf("request calls = %d after cached failure, want %d", requestCalls, firstRequestCount)
 	}
 }
 
