@@ -1,5 +1,45 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  Menu,
+  NumberInput,
+  RingProgress,
+  SegmentedControl,
+  Skeleton,
+  Text,
+  TextInput,
+  Tooltip,
+  useMantineColorScheme,
+} from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import {
+  IconAlertTriangle,
+  IconCalendarStats,
+  IconChartDonut,
+  IconDeviceDesktopAnalytics,
+  IconDevices,
+  IconDownload,
+  IconGauge,
+  IconFileTypeCsv,
+  IconJson,
+  IconLogout,
+  IconMoon,
+  IconRefresh,
+  IconSparkles,
+  IconSettings,
+  IconSun,
+  IconTrendingDown,
+  IconTrendingUp,
+  IconUpload,
+  IconWifi,
+} from '@tabler/icons-react'
+import {
   archiveDevice,
   blockDevice,
   deleteDevice,
@@ -56,16 +96,8 @@ type LoadState =
       status: SystemStatus
     }
 
-type Theme = 'light' | 'dark'
-
-function initialTheme(): Theme {
-  const saved = localStorage.getItem('fibrex-theme')
-  if (saved === 'light' || saved === 'dark') return saved
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 export function App({ onLogout }: { onLogout: () => Promise<void> }) {
-  const [theme, setTheme] = useState<Theme>(initialTheme)
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [monthFilter, setMonthFilter] = useState(currentMonth)
   const [from, setFrom] = useState(initialMonthRange.from)
@@ -95,10 +127,10 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   })
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    document.documentElement.style.colorScheme = theme
-    localStorage.setItem('fibrex-theme', theme)
-  }, [theme])
+    document.documentElement.dataset.theme = colorScheme
+    document.documentElement.style.colorScheme = colorScheme
+    localStorage.setItem('fibrex-theme', colorScheme)
+  }, [colorScheme])
 
   useEffect(() => {
     Promise.all([
@@ -217,6 +249,11 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     setCollecting(true)
     try {
       await runCollection()
+      notifications.show({
+        title: 'Collection requested',
+        message: 'The worker is fetching a fresh router snapshot.',
+        color: 'mtn',
+      })
       window.setTimeout(async () => {
         try {
           const [usage, month, history, status] = await Promise.all([
@@ -230,7 +267,12 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           setCollecting(false)
         }
       }, 2500)
-    } catch {
+    } catch (error) {
+      notifications.show({
+        title: 'Collection failed',
+        message: error instanceof Error ? error.message : 'Could not reach the collection worker.',
+        color: 'red',
+      })
       setCollecting(false)
     }
   }
@@ -303,351 +345,537 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   }
 
   return (
-    <main>
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Local network analytics</p>
-          <h1>FibreXWatch</h1>
+    <div className="dashboard-shell">
+      <aside className="dashboard-sidebar">
+        <div className="sidebar-brand">
+          <span className="brand-mark">
+            <IconWifi size={24} />
+          </span>
+          <div>
+            <strong>FibreX</strong>
+            <small>Network console</small>
+          </div>
         </div>
-        <div className="topbar-actions">
-          <button
-            className="theme-toggle"
-            type="button"
-            onClick={() => void onLogout()}
+        <nav
+          className="sidebar-nav"
+          aria-label="Dashboard sections"
+        >
+          <a
+            href="#overview"
+            className="active"
           >
-            Sign out
-          </button>
-          <button
-            className="theme-toggle"
-            type="button"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-          >
-            <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
-            {theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
-          <span className="local-badge">Localhost</span>
+            <IconGauge size={19} /> Overview
+          </a>
+          <a href="#usage">
+            <IconChartDonut size={19} /> Usage
+          </a>
+          <a href="#devices">
+            <IconDevices size={19} /> Devices
+          </a>
+          <a href="#data-plan">
+            <IconCalendarStats size={19} /> Data plan
+          </a>
+        </nav>
+        <div className="sidebar-status">
+          <span
+            className={`status-dot ${state.kind === 'ready' && state.status.collectorState === 'running' ? 'online' : ''}`}
+          />
+          <div>
+            <strong>
+              {state.kind === 'ready'
+                ? state.status.collectorState.replaceAll('-', ' ')
+                : 'Connecting'}
+            </strong>
+            <small>Collector status</small>
+          </div>
         </div>
-      </header>
+      </aside>
+      <main
+        className="dashboard-main"
+        id="overview"
+      >
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Local network analytics</p>
+            <h1>Network overview</h1>
+            <p className="page-subtitle">
+              Your fibre usage, devices, and router health at a glance.
+            </p>
+          </div>
+          <Group
+            gap="xs"
+            className="topbar-actions"
+          >
+            <Badge
+              variant="light"
+              color="teal"
+              leftSection={<IconWifi size={12} />}
+            >
+              Local network
+            </Badge>
+            <Tooltip label={`Switch to ${colorScheme === 'dark' ? 'light' : 'dark'} theme`}>
+              <ActionIcon
+                variant="default"
+                size="lg"
+                aria-label={`Switch to ${colorScheme === 'dark' ? 'light' : 'dark'} theme`}
+                onClick={() => setColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
+              >
+                {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+              </ActionIcon>
+            </Tooltip>
+            <Button
+              variant="default"
+              leftSection={<IconLogout size={16} />}
+              onClick={() => void onLogout()}
+            >
+              Sign out
+            </Button>
+          </Group>
+        </header>
 
-      {state.kind === 'loading' && (
-        <section className="notice">Connecting to the local API…</section>
-      )}
+        {state.kind === 'loading' && (
+          <section
+            className="loading-grid"
+            aria-label="Loading dashboard"
+          >
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton
+                key={index}
+                height={148}
+                radius="lg"
+              />
+            ))}
+          </section>
+        )}
 
-      {state.kind === 'error' && (
-        <section className="notice error">
-          <strong>Something went wrong.</strong>
-          <span>Verify that the local API is running and accessible.</span>
-        </section>
-      )}
+        {state.kind === 'error' && (
+          <Alert
+            className="dashboard-alert"
+            color="red"
+            title="Something went wrong"
+            icon={<IconAlertTriangle size={20} />}
+          >
+            {state.message}. Verify that the local API is running and accessible.
+          </Alert>
+        )}
 
-      {state.kind === 'ready' && (
-        <>
-          {!state.usage.available && (
-            <section className="notice warning">
-              <strong>Router collection is not active yet.</strong>
-              <span>{state.usage.unavailableReason}</span>
-            </section>
-          )}
-
-          {planUsage?.configured &&
-            planUsage.alertThresholds.some(
-              (threshold) => planUsage.usedPercentage >= threshold,
-            ) && (
-              <section className="notice warning">
-                <strong>Data-plan threshold reached.</strong>
-                <span>
-                  You have used {planUsage.usedPercentage.toFixed(1)}% of this billing cycle’s
-                  allowance.
-                </span>
-              </section>
+        {state.kind === 'ready' && (
+          <>
+            {!state.usage.available && (
+              <Alert
+                className="dashboard-alert"
+                color="yellow"
+                title="Router collection is not active yet"
+                icon={<IconAlertTriangle size={20} />}
+              >
+                {state.usage.unavailableReason}
+              </Alert>
             )}
 
-          <section
-            className="metrics"
-            aria-label="Today's usage"
-          >
-            <Metric
-              label="Used today"
-              value={formatBytes(state.usage.totalBytes)}
-              featured
-            />
-            <Metric
-              label={`Used in ${state.month.period}`}
-              value={formatBytes(state.month.totalBytes)}
-            />
-            <Metric
-              label="Downloaded"
-              value={formatBytes(state.usage.downloadBytes)}
-            />
-            <Metric
-              label="Uploaded"
-              value={formatBytes(state.usage.uploadBytes)}
-            />
-            <Metric
-              label="Online devices"
-              value={state.usage.activeDevices?.toString() ?? 'Unavailable'}
-            />
-            <Metric
-              label="New in 24 hours"
-              value={newDeviceCount.toString()}
-            />
-          </section>
+            {planUsage?.configured &&
+              planUsage.alertThresholds.some(
+                (threshold) => planUsage.usedPercentage >= threshold,
+              ) && (
+                <Alert
+                  className="dashboard-alert"
+                  color="orange"
+                  title="Data-plan threshold reached"
+                  icon={<IconAlertTriangle size={20} />}
+                >
+                  You have used {planUsage.usedPercentage.toFixed(1)}% of this billing cycle’s
+                  allowance.
+                </Alert>
+              )}
 
-          {planUsage?.configured && (
-            <section className="plan-strip">
-              <div>
-                <span>Plan used</span>
-                <strong>{planUsage.usedPercentage.toFixed(1)}%</strong>
-              </div>
-              <div>
-                <span>Remaining</span>
-                <strong>{formatBytes(planUsage.remainingBytes)}</strong>
-              </div>
-              <div>
-                <span>Daily budget</span>
-                <strong>{formatBytes(planUsage.dailyBudgetBytes)}</strong>
-              </div>
-              <div>
-                <span>Projected</span>
-                <strong>{formatBytes(planUsage.projectedBytes)}</strong>
-              </div>
-              <div className="plan-progress">
-                <span style={{ width: `${Math.min(planUsage.usedPercentage, 100)}%` }} />
-              </div>
+            <section
+              className="metrics"
+              aria-label="Today's usage"
+            >
+              <Metric
+                label="Used today"
+                value={formatBytes(state.usage.totalBytes)}
+                icon={<IconGauge size={20} />}
+                featured
+              />
+              <Metric
+                label={`Used in ${state.month.period}`}
+                value={formatBytes(state.month.totalBytes)}
+                icon={<IconCalendarStats size={20} />}
+              />
+              <Metric
+                label="Downloaded"
+                value={formatBytes(state.usage.downloadBytes)}
+                icon={<IconDownload size={20} />}
+              />
+              <Metric
+                label="Uploaded"
+                value={formatBytes(state.usage.uploadBytes)}
+                icon={<IconUpload size={20} />}
+              />
+              <Metric
+                label="Online devices"
+                value={state.usage.activeDevices?.toString() ?? 'Unavailable'}
+                icon={<IconDeviceDesktopAnalytics size={20} />}
+              />
+              <Metric
+                label="New in 24 hours"
+                value={newDeviceCount.toString()}
+                icon={<IconSparkles size={20} />}
+              />
             </section>
-          )}
-          {planUsage?.projectedExhaustionDate && (
-            <section className="notice warning">
-              <strong>Allowance may run out early.</strong>
-              <span>
+
+            {planUsage?.configured && (
+              <section className="plan-overview-card">
+                <div className="plan-ring">
+                  <RingProgress
+                    size={112}
+                    thickness={10}
+                    roundCaps
+                    sections={[{ value: Math.min(planUsage.usedPercentage, 100), color: 'mtn.5' }]}
+                    label={
+                      <Text
+                        ta="center"
+                        fw={800}
+                        size="lg"
+                      >
+                        {planUsage.usedPercentage.toFixed(0)}%
+                      </Text>
+                    }
+                  />
+                  <div>
+                    <span>Current allowance</span>
+                    <strong>{formatBytes(planUsage.allowanceBytes)}</strong>
+                    <small>{planUsage.remainingDays} days left in this cycle</small>
+                  </div>
+                </div>
+                <div className="plan-quick-stats">
+                  <div>
+                    <span>Remaining</span>
+                    <strong>{formatBytes(planUsage.remainingBytes)}</strong>
+                  </div>
+                  <div>
+                    <span>Daily budget</span>
+                    <strong>{formatBytes(planUsage.dailyBudgetBytes)}</strong>
+                  </div>
+                  <div>
+                    <span>Projected</span>
+                    <strong>{formatBytes(planUsage.projectedBytes)}</strong>
+                  </div>
+                </div>
+              </section>
+            )}
+            {planUsage?.projectedExhaustionDate && (
+              <Alert
+                className="dashboard-alert"
+                color="orange"
+                title="Allowance may run out early"
+                icon={<IconAlertTriangle size={20} />}
+              >
                 At the current rate, the plan is projected to finish around{' '}
                 {planUsage.projectedExhaustionDate}.
-              </span>
-            </section>
-          )}
+              </Alert>
+            )}
 
-          <section className="grid">
-            <article className="panel usage-history">
-              <div className="panel-heading">
-                <div>
-                  <p className="panel-label">History</p>
-                  <h2>Daily usage</h2>
-                </div>
-                <label>
-                  Month
-                  <input
+            <section
+              className="grid"
+              id="usage"
+            >
+              <article className="panel usage-history">
+                <div className="panel-heading">
+                  <div>
+                    <p className="panel-label">History</p>
+                    <h2>Daily usage</h2>
+                  </div>
+                  <TextInput
+                    className="month-picker"
+                    label="Month"
                     type="month"
                     value={monthFilter}
                     onChange={(event) => selectMonth(event.target.value)}
                   />
-                </label>
-              </div>
-              <form
-                className="date-filter"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void loadHistory(from, to)
-                }}
-              >
-                <label>
-                  From
-                  <input
+                </div>
+                <form
+                  className="date-filter"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void loadHistory(from, to)
+                  }}
+                >
+                  <TextInput
+                    label="From"
                     type="date"
                     value={from}
                     onChange={(event) => setFrom(event.target.value)}
                   />
-                </label>
-                <label>
-                  To
-                  <input
+                  <TextInput
+                    label="To"
                     type="date"
                     value={to}
                     min={from}
                     onChange={(event) => setTo(event.target.value)}
                   />
-                </label>
-                <button
-                  type="submit"
-                  disabled={historyLoading}
-                >
-                  {historyLoading ? 'Loading…' : 'Apply range'}
-                </button>
-              </form>
-              {historyError && <p className="history-error">{historyError}</p>}
-              <div className="history-total">
-                <span>
-                  {state.history.from} – {state.history.to}
-                </span>
-                <strong>{formatBytes(state.history.totalBytes)}</strong>
-              </div>
-              <div className="history-tools">
-                <select
-                  value={granularity}
-                  onChange={(event) =>
-                    void changeGranularity(event.target.value as UsageSeries['granularity'])
+                  <Button
+                    color="dark"
+                    type="submit"
+                    loading={historyLoading}
+                  >
+                    Apply range
+                  </Button>
+                </form>
+                {historyError && <p className="history-error">{historyError}</p>}
+                <div className="history-total">
+                  <span>
+                    {state.history.from} – {state.history.to}
+                  </span>
+                  <strong>{formatBytes(state.history.totalBytes)}</strong>
+                </div>
+                <div className="history-tools">
+                  <SegmentedControl
+                    className="granularity-control"
+                    value={granularity}
+                    data={[
+                      { value: 'hour', label: 'Hour' },
+                      { value: 'day', label: 'Day' },
+                      { value: 'week', label: 'Week' },
+                      { value: 'month', label: 'Month' },
+                    ]}
+                    onChange={(value) => void changeGranularity(value)}
+                  />
+                  <Menu
+                    shadow="md"
+                    position="bottom-end"
+                  >
+                    <Menu.Target>
+                      <Button
+                        variant="default"
+                        leftSection={<IconDownload size={16} />}
+                      >
+                        Export
+                      </Button>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Label>Download usage data</Menu.Label>
+                      <Menu.Item
+                        component="a"
+                        href={usageCSVURL(from, to, granularity)}
+                        leftSection={<IconFileTypeCsv size={17} />}
+                      >
+                        CSV spreadsheet
+                      </Menu.Item>
+                      <Menu.Item
+                        component="a"
+                        href={usageJSONURL(from, to, granularity)}
+                        leftSection={<IconJson size={17} />}
+                      >
+                        JSON data
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                </div>
+                {series && <UsageInsights series={series} />}
+                {!!series?.points.length &&
+                  (granularity === 'hour' ? (
+                    <UsageHeatmap series={series} />
+                  ) : (
+                    <UsageBars series={series} />
+                  ))}
+                {!series?.points.length && (
+                  <div className="empty-chart">
+                    No stored readings exist for this period. History starts when the collector
+                    begins recording.
+                  </div>
+                )}
+              </article>
+
+              <article className="panel status-panel">
+                <div className="collector-heading">
+                  <span
+                    className={`collector-icon ${state.status.collectorState === 'running' ? 'online' : ''}`}
+                  >
+                    <IconWifi size={22} />
+                  </span>
+                  <div>
+                    <p className="panel-label">Collector</p>
+                    <h2>System status</h2>
+                  </div>
+                  <Badge
+                    ml="auto"
+                    color={state.status.collectorState === 'running' ? 'teal' : 'orange'}
+                    variant="light"
+                  >
+                    {state.status.collectorState.replaceAll('-', ' ')}
+                  </Badge>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Adapter</dt>
+                    <dd>{state.status.routerAdapter}</dd>
+                  </div>
+                  <div>
+                    <dt>Router</dt>
+                    <dd>{state.status.routerAddress || 'Not configured'}</dd>
+                  </div>
+                  <div>
+                    <dt>Interval</dt>
+                    <dd>{state.status.collectionIntervalSeconds}s</dd>
+                  </div>
+                  <div>
+                    <dt>Last reading</dt>
+                    <dd>
+                      {state.status.lastCollectedAt
+                        ? new Date(state.status.lastCollectedAt).toLocaleTimeString()
+                        : 'None'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Timezone</dt>
+                    <dd>{state.status.timezone}</dd>
+                  </div>
+                </dl>
+                <Button
+                  className="collect-button"
+                  color="dark"
+                  leftSection={
+                    collecting ? (
+                      <Loader
+                        size={15}
+                        color="gray"
+                      />
+                    ) : (
+                      <IconRefresh size={17} />
+                    )
                   }
+                  disabled={collecting || state.status.collectorState === 'worker-offline'}
+                  onClick={() => void collectNow()}
                 >
-                  <option value="hour">Hourly</option>
-                  <option value="day">Daily</option>
-                  <option value="week">Weekly</option>
-                  <option value="month">Monthly</option>
-                </select>
-                <a href={usageCSVURL(from, to, granularity)}>Export CSV</a>
-                <a href={usageJSONURL(from, to, granularity)}>Export JSON</a>
-              </div>
-              {series && (
-                <p className="comparison">
-                  Compared with previous period:{' '}
-                  <strong>
-                    {series.previousTotalBytes
-                      ? `${series.changePercentage >= 0 ? '+' : ''}${series.changePercentage.toFixed(1)}%`
-                      : 'No earlier data'}
-                  </strong>
-                </p>
-              )}
-              {series?.points.length ? (
-                <p className="comparison">
-                  Average: <strong>{formatBytes(series.totalBytes / series.points.length)}</strong>{' '}
-                  · Peak:{' '}
-                  <strong>
-                    {formatBytes(Math.max(...series.points.map((point) => point.totalBytes)))}
-                  </strong>
-                </p>
-              ) : null}
-              {!!series?.points.length &&
-                (granularity === 'hour' ? (
-                  <UsageHeatmap series={series} />
-                ) : (
-                  <UsageBars series={series} />
-                ))}
-              {!series?.points.length && (
-                <div className="empty-chart">
-                  No stored readings exist for this period. History starts when the collector begins
-                  recording.
-                </div>
-              )}
-            </article>
+                  {collecting ? 'Collecting…' : 'Collect now'}
+                </Button>
+              </article>
+            </section>
 
-            <article className="panel status-panel">
-              <p className="panel-label">Collector</p>
-              <h2>System status</h2>
-              <dl>
-                <div>
-                  <dt>State</dt>
-                  <dd>{state.status.collectorState}</dd>
-                </div>
-                <div>
-                  <dt>Adapter</dt>
-                  <dd>{state.status.routerAdapter}</dd>
-                </div>
-                <div>
-                  <dt>Router</dt>
-                  <dd>{state.status.routerAddress || 'Not configured'}</dd>
-                </div>
-                <div>
-                  <dt>Interval</dt>
-                  <dd>{state.status.collectionIntervalSeconds}s</dd>
-                </div>
-                <div>
-                  <dt>Last reading</dt>
-                  <dd>
-                    {state.status.lastCollectedAt
-                      ? new Date(state.status.lastCollectedAt).toLocaleTimeString()
-                      : 'None'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Timezone</dt>
-                  <dd>{state.status.timezone}</dd>
-                </div>
-              </dl>
-              <button
-                className="collect-button"
-                type="button"
-                disabled={collecting || state.status.collectorState === 'worker-offline'}
-                onClick={() => void collectNow()}
-              >
-                {collecting ? 'Collecting…' : 'Collect now'}
-              </button>
-            </article>
-          </section>
-
-          <DeviceListPanel
-            devices={devices}
-            search={deviceSearch}
-            alertStatus={alertStatus}
-            capabilities={capabilities}
-            onSearch={setDeviceSearch}
-            onEnableAlerts={() => void enableDeviceAlerts()}
-            onHistory={(device) => void showDevice(device)}
-            onEdit={setEditingDevice}
-            onArchive={(device) => setDeviceLifecycle({ device, action: 'archive' })}
-            onRestore={(device) => setDeviceLifecycle({ device, action: 'restore' })}
-            onDelete={(device) => setDeviceLifecycle({ device, action: 'delete' })}
-            onBlock={(device) => setDeviceLifecycle({ device, action: 'block' })}
-          />
-
-          {deviceDialog && (
-            <DeviceDialog
-              state={deviceDialog}
-              onClose={() => setDeviceDialog(null)}
-            />
-          )}
-          {editingDevice && (
-            <EditDeviceDialog
-              device={editingDevice}
-              onClose={() => setEditingDevice(null)}
-              onSave={saveDevice}
-            />
-          )}
-          {deviceLifecycle && (
-            <DeviceLifecycleDialog
-              device={deviceLifecycle.device}
-              action={deviceLifecycle.action}
-              onClose={() => setDeviceLifecycle(null)}
-              onConfirm={() =>
-                changeDeviceLifecycle(deviceLifecycle.device, deviceLifecycle.action)
-              }
-            />
-          )}
-
-          <section className="panel plan-settings">
-            <div>
-              <p className="panel-label">MTN allowance</p>
-              <h2>Data plan</h2>
+            <div id="devices">
+              <DeviceListPanel
+                devices={devices}
+                search={deviceSearch}
+                alertStatus={alertStatus}
+                capabilities={capabilities}
+                onSearch={setDeviceSearch}
+                onEnableAlerts={() => void enableDeviceAlerts()}
+                onHistory={(device) => void showDevice(device)}
+                onEdit={setEditingDevice}
+                onArchive={(device) => setDeviceLifecycle({ device, action: 'archive' })}
+                onRestore={(device) => setDeviceLifecycle({ device, action: 'restore' })}
+                onDelete={(device) => setDeviceLifecycle({ device, action: 'delete' })}
+                onBlock={(device) => setDeviceLifecycle({ device, action: 'block' })}
+              />
             </div>
-            <form onSubmit={(event) => void updateDataPlan(event)}>
-              <label>
-                Allowance (GB)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.1"
+
+            {deviceDialog && (
+              <DeviceDialog
+                state={deviceDialog}
+                onClose={() => setDeviceDialog(null)}
+              />
+            )}
+            {editingDevice && (
+              <EditDeviceDialog
+                device={editingDevice}
+                onClose={() => setEditingDevice(null)}
+                onSave={saveDevice}
+              />
+            )}
+            {deviceLifecycle && (
+              <DeviceLifecycleDialog
+                device={deviceLifecycle.device}
+                action={deviceLifecycle.action}
+                onClose={() => setDeviceLifecycle(null)}
+                onConfirm={() =>
+                  changeDeviceLifecycle(deviceLifecycle.device, deviceLifecycle.action)
+                }
+              />
+            )}
+
+            <section
+              className="panel plan-settings"
+              id="data-plan"
+            >
+              <div>
+                <p className="panel-label">MTN allowance</p>
+                <h2>Data plan</h2>
+                <p className="settings-help">
+                  Keep projections accurate by matching your current MTN plan.
+                </p>
+              </div>
+              <form onSubmit={(event) => void updateDataPlan(event)}>
+                <NumberInput
+                  label="Allowance"
+                  description="Total plan size in gigabytes"
+                  min={0}
+                  step={10}
+                  decimalScale={1}
+                  suffix=" GB"
                   value={allowanceGB}
-                  onChange={(event) => setAllowanceGB(event.target.value)}
-                  placeholder="e.g. 500"
+                  onChange={(value) => setAllowanceGB(value.toString())}
+                  placeholder="500 GB"
                 />
-              </label>
-              <label>
-                Billing cycle starts
-                <input
-                  type="number"
-                  min="1"
-                  max="28"
+                <NumberInput
+                  label="Billing cycle starts"
+                  description="Day of each month"
+                  min={1}
+                  max={28}
                   value={billingDay}
-                  onChange={(event) => setBillingDay(event.target.value)}
+                  onChange={(value) => setBillingDay(value.toString())}
                 />
-              </label>
-              <button type="submit">Save plan</button>
-            </form>
-            <p className="settings-help">
-              Alerts are evaluated at 50%, 75%, 90%, and 100%. Current cycle:{' '}
-              {planUsage?.cycleStart ?? '—'} to {planUsage?.cycleEnd ?? '—'}.
-            </p>
-          </section>
-        </>
-      )}
-    </main>
+                <Button
+                  color="dark"
+                  type="submit"
+                  leftSection={<IconSettings size={17} />}
+                >
+                  Save plan
+                </Button>
+              </form>
+              <Divider my="lg" />
+              <p className="settings-help">
+                Alerts are evaluated at 50%, 75%, 90%, and 100%. Current cycle:{' '}
+                {planUsage?.cycleStart ?? '—'} to {planUsage?.cycleEnd ?? '—'}.
+              </p>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
+
+function UsageInsights({ series }: { series: UsageSeries }) {
+  const hasPoints = series.points.length > 0
+  const changeLabel = series.previousTotalBytes
+    ? `${series.changePercentage >= 0 ? '+' : ''}${series.changePercentage.toFixed(1)}%`
+    : 'No earlier data'
+  return (
+    <div className="usage-insights">
+      <div>
+        <span>Period change</span>
+        <strong className={series.changePercentage > 0 ? 'trend-up' : 'trend-down'}>
+          {series.changePercentage > 0 ? (
+            <IconTrendingUp size={17} />
+          ) : (
+            <IconTrendingDown size={17} />
+          )}
+          {changeLabel}
+        </strong>
+      </div>
+      <div>
+        <span>Daily average</span>
+        <strong>{hasPoints ? formatBytes(series.totalBytes / series.points.length) : '—'}</strong>
+      </div>
+      <div>
+        <span>Peak usage</span>
+        <strong>
+          {hasPoints
+            ? formatBytes(Math.max(...series.points.map((point) => point.totalBytes)))
+            : '—'}
+        </strong>
+      </div>
+    </div>
   )
 }

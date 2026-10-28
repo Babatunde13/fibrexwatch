@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react'
+import { Alert, Button, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core'
+import { IconAlertCircle, IconLock, IconUser } from '@tabler/icons-react'
 
 export function LoginPage({
   onLogin,
@@ -25,38 +27,52 @@ export function LoginPage({
 
   return (
     <main className="login-page">
-      <section className="login-card">
-        <p className="eyebrow">Home network intelligence</p>
-        <h1>FibreXWatch</h1>
-        <p>Sign in to view your network usage and connected devices.</p>
+      <Paper
+        component="section"
+        className="login-card"
+        withBorder
+        radius="xl"
+        shadow="xl"
+      >
+        <Text className="eyebrow">Home network intelligence</Text>
+        <Title order={1}>FibreXWatch</Title>
+        <Text c="dimmed">Sign in to view your network usage and connected devices.</Text>
         <form onSubmit={(event) => void submit(event)}>
-          <label>
-            Username
-            <input
+          <Stack gap="md">
+            <TextInput
+              label="Username"
+              leftSection={<IconUser size={17} />}
               autoComplete="username"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
             />
-          </label>
-          <label>
-            Password
-            <input
+            <PasswordInput
+              label="Password"
+              leftSection={<IconLock size={17} />}
               autoFocus
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-          </label>
-          {error && <p className="history-error">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
+            {error && (
+              <Alert
+                color="red"
+                icon={<IconAlertCircle size={18} />}
+              >
+                {error}
+              </Alert>
+            )}
+            <Button
+              type="submit"
+              color="dark"
+              loading={submitting}
+              fullWidth
+            >
+              Sign in
+            </Button>
+          </Stack>
         </form>
-      </section>
+      </Paper>
     </main>
   )
 }

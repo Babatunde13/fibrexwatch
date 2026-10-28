@@ -1,26 +1,31 @@
+import { AreaChart } from '@mantine/charts'
 import type { UsageSeries } from '../types'
 import { formatBytes } from '../utils/format'
 
 export function UsageBars({ series }: { series: UsageSeries }) {
-  const maximum = Math.max(...series.points.map((point) => point.totalBytes), 1)
+  const data = series.points.map((point) => ({
+    period: formatPeriod(point.period, series.granularity, series.from === series.to),
+    Download: point.downloadBytes,
+    Upload: point.uploadBytes,
+  }))
   return (
-    <div className={`usage-bars usage-bars-${series.granularity}`}>
-      {series.points.map((point) => (
-        <div
-          className="usage-row"
-          key={point.period}
-          title={`${formatPeriod(point.period, series.granularity, false)}: ${formatBytes(point.totalBytes)}`}
-        >
-          <time dateTime={point.period}>
-            {formatPeriod(point.period, series.granularity, series.from === series.to)}
-          </time>
-          <div className="bar-track">
-            <span style={{ width: `${Math.max((point.totalBytes / maximum) * 100, 1)}%` }} />
-          </div>
-          <strong>{formatBytes(point.totalBytes)}</strong>
-        </div>
-      ))}
-    </div>
+    <AreaChart
+      className="usage-chart"
+      h={300}
+      data={data}
+      dataKey="period"
+      series={[
+        { name: 'Download', color: 'mtn.6' },
+        { name: 'Upload', color: 'blue.5' },
+      ]}
+      curveType="monotone"
+      type="stacked"
+      withLegend
+      withDots={data.length < 20}
+      valueFormatter={formatBytes}
+      tickLine="y"
+      gridAxis="xy"
+    />
   )
 }
 

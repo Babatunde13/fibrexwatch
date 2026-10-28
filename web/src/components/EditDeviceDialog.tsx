@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Alert, Button, Group, Modal, Select, SimpleGrid, TextInput } from '@mantine/core'
 import type { Device } from '../types'
 
 type DeviceMetadata = Pick<Device, 'displayName' | 'ownerName' | 'category'>
@@ -39,92 +40,62 @@ export function EditDeviceDialog({
   }
 
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onMouseDown={onClose}
+    <Modal
+      opened
+      onClose={onClose}
+      title={`Edit ${device.displayName || device.hostname || device.macAddress}`}
+      centered
+      size="md"
     >
-      <section
-        className="panel device-dialog edit-device-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-device-title"
-        onMouseDown={(event) => event.stopPropagation()}
+      <form
+        className="mantine-dialog-form"
+        onSubmit={(event) => void submit(event)}
       >
-        <div className="panel-heading">
-          <div>
-            <p className="panel-label">Device settings</p>
-            <h2 id="edit-device-title">
-              Edit {device.displayName || device.hostname || device.macAddress}
-            </h2>
-          </div>
-          <button
-            className="dialog-close"
-            type="button"
-            aria-label="Close device editor"
+        <TextInput
+          label="Friendly name"
+          autoFocus
+          maxLength={100}
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+          placeholder={device.hostname || 'Living-room TV'}
+        />
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <TextInput
+            label="Owner"
+            maxLength={100}
+            value={ownerName}
+            onChange={(event) => setOwnerName(event.target.value)}
+            placeholder="Shared, Babatunde…"
+          />
+          <Select
+            label="Category"
+            value={category || null}
+            onChange={(value) => setCategory(value ?? '')}
+            data={[
+              ...(category && !deviceCategories.includes(category) ? [category] : []),
+              ...deviceCategories,
+            ]}
+            clearable
+            placeholder="Uncategorized"
+          />
+        </SimpleGrid>
+        {error && <Alert color="red">{error}</Alert>}
+        <Group justify="flex-end">
+          <Button
+            variant="default"
             onClick={onClose}
           >
-            ×
-          </button>
-        </div>
-        <form onSubmit={(event) => void submit(event)}>
-          <label className="friendly-name-field">
-            Friendly name
-            <input
-              autoFocus
-              maxLength={100}
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder={device.hostname || 'Living-room TV'}
-            />
-          </label>
-          <label>
-            Owner
-            <input
-              maxLength={100}
-              value={ownerName}
-              onChange={(event) => setOwnerName(event.target.value)}
-              placeholder="Shared, Babatunde…"
-            />
-          </label>
-          <label>
-            Category
-            <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-            >
-              <option value="">Uncategorized</option>
-              {category && !deviceCategories.includes(category) && (
-                <option value={category}>{category}</option>
-              )}
-              {deviceCategories.map((value) => (
-                <option
-                  key={value}
-                  value={value}
-                >
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-          {error && <p className="history-error">{error}</p>}
-          <div className="dialog-actions">
-            <button
-              type="button"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              className="primary"
-              type="submit"
-              disabled={saving}
-            >
-              {saving ? 'Saving…' : 'Save device'}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+            Cancel
+          </Button>
+          <Button
+            color="dark"
+            type="submit"
+            loading={saving}
+          >
+            Save device
+          </Button>
+        </Group>
+      </form>
+    </Modal>
   )
 }

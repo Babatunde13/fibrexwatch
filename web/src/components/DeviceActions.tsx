@@ -1,3 +1,13 @@
+import { ActionIcon, Menu, Tooltip } from '@mantine/core'
+import {
+  IconArchive,
+  IconBan,
+  IconDotsVertical,
+  IconEdit,
+  IconHistory,
+  IconRestore,
+  IconTrash,
+} from '@tabler/icons-react'
 import type { Device, RouterCapabilities } from '../types'
 
 export function DeviceActions({
@@ -22,53 +32,95 @@ export function DeviceActions({
   if (device.archivedAt) {
     return (
       <div className="row-actions">
-        <button
-          type="button"
-          onClick={() => onRestore(device)}
+        <Menu
+          shadow="md"
+          width={190}
+          position="bottom-end"
         >
-          Restore
-        </button>
-        <button
-          className="danger-link"
-          type="button"
-          onClick={() => onDelete(device)}
-        >
-          Delete forever
-        </button>
+          <Menu.Target>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label="Device actions"
+            >
+              <IconDotsVertical size={18} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<IconRestore size={16} />}
+              onClick={() => onRestore(device)}
+            >
+              Restore
+            </Menu.Item>
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              onClick={() => onDelete(device)}
+            >
+              Delete forever
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
       </div>
     )
   }
 
   return (
     <div className="row-actions">
-      <button
-        type="button"
-        onClick={() => onHistory(device)}
-      >
-        History
-      </button>
-      <button
-        type="button"
-        onClick={() => onEdit(device)}
-      >
-        Edit
-      </button>
-      {capabilities?.deviceBlocking && !device.blockedAt && (
-        <button
-          className="danger-link"
-          type="button"
-          disabled={device.blockPending}
-          onClick={() => onBlock(device)}
+      <Tooltip label="History">
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label="View device history"
+          onClick={() => onHistory(device)}
         >
-          {device.blockPending ? 'Block queued' : 'Block Wi-Fi'}
-        </button>
-      )}
-      <button
-        type="button"
-        onClick={() => onArchive(device)}
+          <IconHistory size={18} />
+        </ActionIcon>
+      </Tooltip>
+      <Tooltip label="Edit">
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label="Edit device"
+          onClick={() => onEdit(device)}
+        >
+          <IconEdit size={18} />
+        </ActionIcon>
+      </Tooltip>
+      <Menu
+        shadow="md"
+        width={190}
+        position="bottom-end"
       >
-        Hide
-      </button>
+        <Menu.Target>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            aria-label="More device actions"
+          >
+            <IconDotsVertical size={18} />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          {capabilities?.deviceBlocking && !device.blockedAt && (
+            <Menu.Item
+              color="red"
+              leftSection={<IconBan size={16} />}
+              disabled={device.blockPending}
+              onClick={() => onBlock(device)}
+            >
+              {device.blockPending ? 'Block queued' : 'Block Wi-Fi'}
+            </Menu.Item>
+          )}
+          <Menu.Item
+            leftSection={<IconArchive size={16} />}
+            onClick={() => onArchive(device)}
+          >
+            Hide device
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
     </div>
   )
 }

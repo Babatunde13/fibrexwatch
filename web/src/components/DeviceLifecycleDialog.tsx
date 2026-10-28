@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Alert, Button, Group, Modal, Text } from '@mantine/core'
 import type { Device } from '../types'
 
 export type DeviceLifecycleAction = 'archive' | 'restore' | 'delete' | 'block'
@@ -33,43 +34,49 @@ export function DeviceLifecycleDialog({
   }
 
   return (
-    <div
-      className="dialog-backdrop"
-      role="presentation"
-      onMouseDown={onClose}
+    <Modal
+      opened
+      onClose={onClose}
+      title={`${copy.title} ${name}?`}
+      centered
+      size="md"
+      closeOnClickOutside={!working}
+      closeOnEscape={!working}
     >
-      <section
-        className="panel device-dialog lifecycle-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="device-lifecycle-title"
-        onMouseDown={(event) => event.stopPropagation()}
+      <Text
+        c="dimmed"
+        lh={1.6}
       >
-        <p className="panel-label">Device management</p>
-        <h2 id="device-lifecycle-title">
-          {copy.title} {name}?
-        </h2>
-        <p>{copy.description}</p>
-        {error && <p className="history-error">{error}</p>}
-        <div className="dialog-actions">
-          <button
-            type="button"
-            disabled={working}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            className={action === 'delete' || action === 'block' ? 'danger' : 'primary'}
-            type="button"
-            disabled={working}
-            onClick={() => void confirm()}
-          >
-            {working ? 'Working…' : copy.confirm}
-          </button>
-        </div>
-      </section>
-    </div>
+        {copy.description}
+      </Text>
+      {error && (
+        <Alert
+          mt="md"
+          color="red"
+        >
+          {error}
+        </Alert>
+      )}
+      <Group
+        justify="flex-end"
+        mt="xl"
+      >
+        <Button
+          variant="default"
+          disabled={working}
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          color={action === 'delete' || action === 'block' ? 'red' : 'dark'}
+          loading={working}
+          onClick={() => void confirm()}
+        >
+          {copy.confirm}
+        </Button>
+      </Group>
+    </Modal>
   )
 }
 

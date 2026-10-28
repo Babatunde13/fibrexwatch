@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Center, Loader, Stack, Text } from '@mantine/core'
 import { getAuthSession, login, logout } from './api'
 import { App } from './App'
 import { LoginPage } from './components/LoginPage'
@@ -19,9 +20,20 @@ export function AppShell() {
 
   if (state === 'loading')
     return (
-      <main className="login-page">
-        <p>Loading FibreXWatch</p>
-      </main>
+      <Center mih="100vh">
+        <Stack
+          align="center"
+          gap="sm"
+        >
+          <Loader color="mtn" />
+          <Text
+            c="dimmed"
+            size="sm"
+          >
+            Loading FibreXWatch
+          </Text>
+        </Stack>
+      </Center>
     )
   if (state === 'anonymous') {
     return (

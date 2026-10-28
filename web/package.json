@@ -12,9 +12,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mantine/charts": "^9.7.4",
+    "@mantine/core": "^9.7.4",
+    "@mantine/hooks": "^9.7.4",
+    "@mantine/notifications": "^9.7.4",
+    "@tabler/icons-react": "^3.50.0",
     "@vitejs/plugin-react": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "recharts": "^3.10.1",
     "typescript": "latest",
     "vite": "latest"
   },

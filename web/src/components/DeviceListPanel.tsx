@@ -1,4 +1,25 @@
 import { useMemo, useState } from 'react'
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Pagination,
+  Select,
+  Tabs,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core'
+import {
+  IconArrowsSort,
+  IconBell,
+  IconBellCheck,
+  IconDeviceDesktop,
+  IconEyeOff,
+  IconFilterOff,
+  IconSearch,
+} from '@tabler/icons-react'
 import type { Device, DeviceSort, RouterCapabilities, SortDirection } from '../types'
 import { DeviceActions } from './DeviceActions'
 import { DeviceCards } from './DeviceCards'
@@ -102,47 +123,63 @@ export function DeviceListPanel({
             </small>
           </h2>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="light"
+          color={alertStatus === 'granted' ? 'teal' : 'dark'}
+          leftSection={
+            alertStatus === 'granted' ? <IconBellCheck size={16} /> : <IconBell size={16} />
+          }
           disabled={alertStatus === 'granted' || alertStatus === 'unsupported'}
           onClick={onEnableAlerts}
         >
           {alertButtonLabel(alertStatus)}
-        </button>
+        </Button>
       </div>
-      <div
+      <Tabs
         className="device-view-tabs"
-        role="tablist"
-        aria-label="Device lists"
+        value={view}
+        onChange={(value) => {
+          setView((value ?? 'network') as DeviceView)
+          setPage(1)
+        }}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'network'}
-          onClick={() => {
-            setView('network')
-            setPage(1)
-          }}
-        >
-          Network devices <span>{activeCount}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === 'archived'}
-          onClick={() => {
-            setView('archived')
-            setPage(1)
-          }}
-        >
-          Hidden devices <span>{archivedCount}</span>
-        </button>
-      </div>
+        <Tabs.List>
+          <Tabs.Tab
+            value="network"
+            leftSection={<IconDeviceDesktop size={16} />}
+          >
+            Network{' '}
+            <Badge
+              size="xs"
+              variant="light"
+              ml={6}
+            >
+              {activeCount}
+            </Badge>
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="archived"
+            leftSection={<IconEyeOff size={16} />}
+          >
+            Hidden{' '}
+            <Badge
+              size="xs"
+              variant="light"
+              color="gray"
+              ml={6}
+            >
+              {archivedCount}
+            </Badge>
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
       <div className="device-filters">
         <div className="filter-group device-filter-fields">
           <span className="filter-group-label">Filter devices</span>
-          <input
+          <TextInput
+            className="device-search"
             aria-label="Search devices"
+            leftSection={<IconSearch size={16} />}
             placeholder="Name, IP, MAC, owner or category"
             value={search}
             onChange={(event) => {
@@ -150,86 +187,89 @@ export function DeviceListPanel({
               setPage(1)
             }}
           />
-          <select
+          <Select
             aria-label="Status"
             value={status}
-            onChange={(event) => {
-              setStatus(event.target.value as StatusFilter)
+            data={[
+              { value: 'all', label: 'Any status' },
+              { value: 'online', label: 'Online' },
+              { value: 'offline', label: 'Offline' },
+            ]}
+            onChange={(value) => {
+              setStatus(value ?? 'all')
               setPage(1)
             }}
-          >
-            <option value="all">Any status</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-          </select>
-          <select
+          />
+          <Select
             aria-label="Category"
             value={category}
-            onChange={(event) => {
-              setCategory(event.target.value)
+            data={[
+              { value: 'all', label: 'Any category' },
+              ...categories.map((value) => ({ value, label: value })),
+            ]}
+            onChange={(value) => {
+              setCategory(value ?? 'all')
               setPage(1)
             }}
-          >
-            <option value="all">Any category</option>
-            {categories.map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-          <select
+          />
+          <Select
             aria-label="Connection band"
             value={band}
-            onChange={(event) => {
-              setBand(event.target.value as BandFilter)
+            data={['all', '2.4 GHz', '5 GHz', 'Ethernet', 'Unknown'].map((value) => ({
+              value,
+              label: value === 'all' ? 'Any connection' : value,
+            }))}
+            onChange={(value) => {
+              setBand((value ?? 'all') as BandFilter)
               setPage(1)
             }}
-          >
-            <option value="all">Any connection</option>
-            <option value="2.4 GHz">2.4 GHz</option>
-            <option value="5 GHz">5 GHz</option>
-            <option value="Ethernet">Ethernet</option>
-            <option value="Unknown">Unknown</option>
-          </select>
-          <select
+          />
+          <Select
             aria-label="Owner"
             value={owner}
-            onChange={(event) => {
-              setOwner(event.target.value)
+            data={[
+              { value: 'all', label: 'Any owner' },
+              ...owners.map((value) => ({ value, label: value })),
+            ]}
+            onChange={(value) => {
+              setOwner(value ?? 'all')
               setPage(1)
             }}
-          >
-            <option value="all">Any owner</option>
-            {owners.map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={clearFilters}
-          >
-            Clear
-          </button>
+          />
+          <Tooltip label="Clear all filters">
+            <ActionIcon
+              variant="default"
+              size={36}
+              aria-label="Clear all filters"
+              onClick={clearFilters}
+            >
+              <IconFilterOff size={17} />
+            </ActionIcon>
+          </Tooltip>
         </div>
         <div className="filter-group device-sort-fields">
           <span className="filter-group-label">Sort results</span>
-          <select
+          <Select
             aria-label="Sort devices by"
             value={sortBy}
-            onChange={(event) => {
-              setSortBy(event.target.value as DeviceSort)
+            leftSection={<IconArrowsSort size={16} />}
+            data={[
+              ['name', 'Name'],
+              ['status', 'Status'],
+              ['lastSeen', 'Last seen'],
+              ['firstSeen', 'First seen'],
+              ['ipAddress', 'IP address'],
+              ['owner', 'Owner'],
+              ['category', 'Category'],
+              ['ssid', 'SSID'],
+            ].map(([value, label]) => ({ value, label }))}
+            onChange={(value) => {
+              setSortBy((value ?? 'name') as DeviceSort)
               setPage(1)
             }}
-          >
-            <option value="name">Sort: Name</option>
-            <option value="status">Sort: Status</option>
-            <option value="lastSeen">Sort: Last seen</option>
-            <option value="firstSeen">Sort: First seen</option>
-            <option value="ipAddress">Sort: IP address</option>
-            <option value="owner">Sort: Owner</option>
-            <option value="category">Sort: Category</option>
-            <option value="ssid">Sort: SSID</option>
-          </select>
-          <button
-            type="button"
+          />
+          <Button
+            variant="default"
             aria-label={`Sort ${sortDirection === 'asc' ? 'descending' : 'ascending'}`}
             onClick={() => {
               setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
@@ -237,7 +277,7 @@ export function DeviceListPanel({
             }}
           >
             {sortDirection === 'asc' ? 'Ascending ↑' : 'Descending ↓'}
-          </button>
+          </Button>
         </div>
       </div>
       <div className="device-table-wrap">
@@ -263,11 +303,12 @@ export function DeviceListPanel({
                   </small>
                 </td>
                 <td>
-                  <span
-                    className={`device-status ${device.online && !device.blockedAt ? 'online' : ''}`}
+                  <Badge
+                    color={deviceStatusColor(device)}
+                    variant="light"
                   >
                     {deviceStatus(device)}
-                  </span>
+                  </Badge>
                 </td>
                 <td>
                   {device.ipAddress || '—'}
@@ -307,10 +348,24 @@ export function DeviceListPanel({
         onBlock={onBlock}
       />
       {!filteredDevices.length && (
-        <div className="dialog-state">
-          {view === 'archived' && archivedCount === 0
-            ? 'No hidden devices.'
-            : 'No devices match all selected filters.'}
+        <div className="device-empty-state">
+          <IconDeviceDesktop
+            size={34}
+            stroke={1.4}
+          />
+          <Text fw={700}>
+            {view === 'archived' && archivedCount === 0
+              ? 'No hidden devices'
+              : 'No matching devices'}
+          </Text>
+          <Text
+            size="sm"
+            c="dimmed"
+          >
+            {view === 'archived' && archivedCount === 0
+              ? 'Devices you hide will appear here.'
+              : 'Try clearing one or more filters.'}
+          </Text>
         </div>
       )}
       {filteredDevices.length > 0 && (
@@ -322,39 +377,24 @@ export function DeviceListPanel({
             Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filteredDevices.length)} of{' '}
             {filteredDevices.length}
           </span>
-          <label>
-            Rows
-            <select
-              value={pageSize}
-              onChange={(event) => {
-                setPageSize(Number(event.target.value))
+          <Group gap="sm">
+            <Select
+              w={76}
+              value={pageSize.toString()}
+              data={['10', '25', '50']}
+              onChange={(value) => {
+                setPageSize(Number(value ?? 10))
                 setPage(1)
               }}
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
-          </label>
-          <div>
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setPage(currentPage - 1)}
-            >
-              Previous
-            </button>
-            <strong>
-              {currentPage} / {pageCount}
-            </strong>
-            <button
-              type="button"
-              disabled={currentPage === pageCount}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              Next
-            </button>
-          </div>
+            />
+            <Pagination
+              total={pageCount}
+              value={currentPage}
+              onChange={setPage}
+              color="dark"
+              size="sm"
+            />
+          </Group>
         </nav>
       )}
       <p className="alert-help">{alertText}</p>
@@ -366,6 +406,11 @@ function deviceStatus(device: Device) {
   if (device.blockedAt) return 'Blocked'
   if (device.blockPending) return 'Block queued'
   return device.online ? 'Online' : 'Offline'
+}
+
+function deviceStatusColor(device: Device) {
+  if (device.blockedAt) return 'red'
+  return device.online ? 'teal' : 'gray'
 }
 
 function bandClass(band: Device['connectionBand']) {
