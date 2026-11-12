@@ -39,3 +39,5 @@ export const getGeneratedReports = (limit = 24) =>
 
 export const generatedReportURL = (id: number, format: 'csv' | 'json') =>
   `${apiBase}/api/v1/reports/${id}?format=${format}`
+
+export const backupExportURL = () => `${apiBase}/api/v1/export/backup`

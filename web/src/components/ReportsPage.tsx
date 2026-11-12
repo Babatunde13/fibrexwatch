@@ -16,11 +16,13 @@ import {
   IconArrowUp,
   IconCalendarTime,
   IconCheck,
+  IconDatabaseExport,
   IconFileTypeCsv,
   IconJson,
   IconPrinter,
 } from '@tabler/icons-react'
 import {
+  backupExportURL,
   generatedReportURL,
   getGeneratedReports,
   getReportSchedule,
@@ -546,6 +548,36 @@ export function ReportsPage() {
             ))}
           </div>
         )}
+      </article>
+      <article className="panel backup-export">
+        <div>
+          <span className="backup-icon">
+            <IconDatabaseExport size={22} />
+          </span>
+          <div>
+            <p className="panel-label">Data portability</p>
+            <h2>Local JSON backup</h2>
+            <p>
+              Download readings, normalized usage, devices, events, settings, and archived reports.
+              Router credentials, users, sessions, and pending control requests are excluded.
+            </p>
+          </div>
+        </div>
+        <Button
+          component="a"
+          href={backupExportURL()}
+          color="dark"
+          leftSection={<IconDatabaseExport size={17} />}
+        >
+          Download backup
+        </Button>
+        <Alert
+          color="yellow"
+          title="Keep this file private"
+          icon={<IconAlertTriangle size={18} />}
+        >
+          The backup contains local device identifiers such as MAC and IP addresses.
+        </Alert>
       </article>
     </section>
   )

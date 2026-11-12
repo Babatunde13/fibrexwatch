@@ -46,6 +46,7 @@ func New(logger *slog.Logger, repository *store.Store, redisClient *redis.Client
 	protected.HandleFunc("PATCH /api/v1/settings/report-schedule", a.saveReportSchedule)
 	protected.HandleFunc("GET /api/v1/reports", a.generatedReports)
 	protected.HandleFunc("GET /api/v1/reports/{id}", a.generatedReport)
+	protected.HandleFunc("GET /api/v1/export/backup", a.exportBackup)
 
 	auth := newAuthenticator(repository, redisClient, cfg.AuthSessionTTL, cfg.AuthCookieSecure)
 	mux := http.NewServeMux()
