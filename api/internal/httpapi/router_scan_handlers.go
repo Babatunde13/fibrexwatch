@@ -1,6 +1,9 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+	"strconv"
+)
 
 func (a *api) queueRouterScan(w http.ResponseWriter, r *http.Request) {
 	if a.cfg.RouterAdapter != "huawei-web" {
@@ -17,11 +20,24 @@ func (a *api) queueRouterScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) latestRouterScan(w http.ResponseWriter, r *http.Request) {
-	scan, err := a.store.LatestRouterScan(r.Context(), a.cfg.RouterAdapter)
+	limit := 10
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 20 {
+			writeJSON(w, 400, map[string]string{"error": "limit must be between 1 and 20"})
+			return
+		}
+		limit = parsed
+	}
+	scans, err := a.store.ListRouterScans(r.Context(), a.cfg.RouterAdapter, limit)
 	if err != nil {
-		a.logger.Error("load router scan", "error", err)
-		writeJSON(w, 500, map[string]string{"error": "load router scan"})
+		a.logger.Error("load router scans", "error", err)
+		writeJSON(w, 500, map[string]string{"error": "load router scans"})
 		return
 	}
-	writeJSON(w, 200, map[string]any{"scan": scan})
+	var latest any
+	if len(scans) > 0 {
+		latest = scans[0]
+	}
+	writeJSON(w, 200, map[string]any{"scan": latest, "history": scans})
 }

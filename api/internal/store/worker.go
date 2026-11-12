@@ -204,6 +204,32 @@ func (s *Store) LatestRouterScan(ctx context.Context, source string) (*RouterSca
 	return &scan, nil
 }
 
+func (s *Store) ListRouterScans(ctx context.Context, source string, limit int) ([]RouterScan, error) {
+	rows, err := s.db.Query(ctx, `
+		select id,source,requested_at,started_at,completed_at,error,result
+		from router_scan_requests where source=$1
+		order by requested_at desc limit $2`, source, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list router scans: %w", err)
+	}
+	defer rows.Close()
+	scans := make([]RouterScan, 0)
+	for rows.Next() {
+		var scan RouterScan
+		if err := rows.Scan(
+			&scan.ID, &scan.Source, &scan.RequestedAt, &scan.StartedAt,
+			&scan.CompletedAt, &scan.Error, &scan.Result,
+		); err != nil {
+			return nil, fmt.Errorf("scan router scan history: %w", err)
+		}
+		scans = append(scans, scan)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate router scan history: %w", err)
+	}
+	return scans, nil
+}
+
 func (s *Store) QueueDeviceBlock(ctx context.Context, deviceID int64, ssidName string) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx, `

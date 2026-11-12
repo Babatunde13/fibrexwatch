@@ -205,6 +205,12 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .inspector-summary-grid span { color: #777b83; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
 .inspector-summary-grid strong { margin-top: 10px; overflow-wrap: anywhere; font-size: 1.1rem; }
 .inspector-results { min-height: auto; }
+.scan-comparison { display: grid; gap: 12px; margin-top: 20px; padding: 16px; border: 1px solid #dce7e1; border-radius: 12px; background: #f7fbf9; }
+.scan-comparison > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.scan-comparison strong, .scan-comparison span { font-size: .78rem; }
+.scan-comparison span { color: #747a82; }
+.comparison-changes { display: flex; flex-wrap: wrap; gap: 6px; }
+.comparison-baseline { display: flex; align-items: center; justify-content: space-between; }
 .inspector-section, .counter-candidates { margin-top: 24px; padding-top: 20px; border-top: 1px solid #eceef1; }
 .inspector-section h3, .counter-candidates h3 { margin: 0 0 12px; font-size: .9rem; }
 .inspector-section > div { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -214,6 +220,16 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .counter-candidate > span { color: #777b83; font-size: .74rem; }
 .counter-candidate > div { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 6px; }
 .inspector-empty { margin: 0; color: #858a92; font-size: .78rem; }
+.inspector-history { min-height: auto; }
+.inspection-list { display: grid; margin-top: 18px; }
+.inspection-row { display: grid; grid-template-columns: auto minmax(160px, 1fr) auto minmax(180px, auto); align-items: center; gap: 12px; padding: 13px 4px; border-top: 1px solid #eceef1; }
+.inspection-status { width: 9px; height: 9px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 0 4px #e6f0ff; }
+.inspection-status.completed { background: #20a66a; box-shadow: 0 0 0 4px #e2f7ed; }
+.inspection-status.failed { background: #d7473d; box-shadow: 0 0 0 4px #fde8e6; }
+.inspection-row > div { display: grid; gap: 3px; }
+.inspection-row strong { font-size: .8rem; }
+.inspection-row span { color: #858a92; font-size: .7rem; }
+.inspection-count { text-align: right; }
 .plan-settings { min-height: auto; margin-top: 14px; }
 .plan-settings form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; align-items: end; gap: 12px; margin-top: 20px; }
 .settings-help { margin-bottom: 0; color: #756f64; font-size: .82rem; }
@@ -336,6 +352,9 @@ dd { margin: 0; font-weight: 700; text-align: right; }
   .inspector-guardrail { align-items: flex-start; flex-wrap: wrap; }
   .inspector-guardrail .mantine-Button-root { width: 100%; margin-left: 0; }
   .inspector-summary-grid { grid-template-columns: 1fr; }
+  .scan-comparison > div:first-child, .comparison-baseline { align-items: flex-start; flex-direction: column; }
+  .inspection-row { grid-template-columns: auto 1fr auto; }
+  .inspection-count { grid-column: 2 / -1; text-align: left; }
   .counter-candidate { grid-template-columns: 1fr; }
   .event-timeline li { grid-template-columns: 14px minmax(0, 1fr); }
   .event-timeline time { grid-column: 2; }
@@ -379,8 +398,10 @@ dd { margin: 0; font-weight: 700; text-align: right; }
 :root[data-theme="dark"] .inspector-guardrail { border-color: #315443; background: #1d2d25; }
 :root[data-theme="dark"] .inspector-guardrail > span { background: #294636; color: #77d6a6; }
 :root[data-theme="dark"] .inspector-summary-grid article { border-color: #454138; background: #24221c; }
+:root[data-theme="dark"] .scan-comparison { border-color: #3d4c43; background: #222a25; }
 :root[data-theme="dark"] .inspector-section, :root[data-theme="dark"] .counter-candidates { border-color: #454138; }
 :root[data-theme="dark"] .inspector-section code, :root[data-theme="dark"] .counter-candidate code { background: #302e27; color: #e1ddd4; }
+:root[data-theme="dark"] .inspection-row { border-color: #454138; }
 :root[data-theme="dark"] .counter-candidate { border-color: #454138; }
 :root[data-theme="dark"] .event-marker { border-color: #24221c; }
 :root[data-theme="dark"] .event-timeline li:not(:last-child)::before { background: #454138; }

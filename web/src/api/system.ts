@@ -7,6 +7,7 @@ export const runCollection = () =>
   post<{ requestId: number; status: string }>('/api/v1/collector/run')
 export const getCollectorEvents = (limit = 50) =>
   get<{ events: CollectorEvent[] }>(`/api/v1/collector/events?limit=${limit}`)
-export const getRouterScan = () => get<{ scan: RouterScan | null }>('/api/v1/router/scan')
+export const getRouterScan = () =>
+  get<{ scan: RouterScan | null; history: RouterScan[] }>('/api/v1/router/scan?limit=10')
 export const runRouterScan = () =>
   post<{ requestId: number; status: string }>('/api/v1/router/scan')
