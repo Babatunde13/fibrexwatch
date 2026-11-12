@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
 import {
   ActionIcon,
   Alert,
@@ -20,6 +20,7 @@ import {
 import { notifications } from '@mantine/notifications'
 import {
   IconAlertTriangle,
+  IconCloudOff,
   IconCalendarStats,
   IconChartDonut,
   IconDeviceDesktopAnalytics,
@@ -74,16 +75,28 @@ import type {
 import { currentMonth, initialMonthRange, monthRange } from './utils/dates'
 import { recentDeviceCount } from './utils/devices'
 import { formatBytes } from './utils/format'
-import { DeviceDialog, type DeviceDialogState } from './components/DeviceDialog'
+import type { DeviceDialogState } from './components/DeviceDialog'
 import { DeviceListPanel, type AlertStatus } from './components/DeviceListPanel'
-import { EditDeviceDialog } from './components/EditDeviceDialog'
-import {
-  DeviceLifecycleDialog,
-  type DeviceLifecycleAction,
-} from './components/DeviceLifecycleDialog'
+import type { DeviceLifecycleAction } from './components/DeviceLifecycleDialog'
 import { Metric } from './components/Metric'
-import { UsageBars } from './components/UsageBars'
-import { UsageHeatmap } from './components/UsageHeatmap'
+
+const UsageBars = lazy(() =>
+  import('./components/UsageBars').then((module) => ({ default: module.UsageBars })),
+)
+const UsageHeatmap = lazy(() =>
+  import('./components/UsageHeatmap').then((module) => ({ default: module.UsageHeatmap })),
+)
+const DeviceDialog = lazy(() =>
+  import('./components/DeviceDialog').then((module) => ({ default: module.DeviceDialog })),
+)
+const EditDeviceDialog = lazy(() =>
+  import('./components/EditDeviceDialog').then((module) => ({ default: module.EditDeviceDialog })),
+)
+const DeviceLifecycleDialog = lazy(() =>
+  import('./components/DeviceLifecycleDialog').then((module) => ({
+    default: module.DeviceLifecycleDialog,
+  })),
+)
 
 type LoadState =
   | { kind: 'loading' }
@@ -115,6 +128,10 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const [series, setSeries] = useState<UsageSeries | null>(null)
   const [capabilities, setCapabilities] = useState<RouterCapabilities | null>(null)
   const [newDeviceCount, setNewDeviceCount] = useState(0)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [refreshError, setRefreshError] = useState('')
+  const [now, setNow] = useState(() => Date.now())
+  const [online, setOnline] = useState(() => navigator.onLine)
   const [deviceDialog, setDeviceDialog] = useState<DeviceDialogState | null>(null)
   const [editingDevice, setEditingDevice] = useState<Device | null>(null)
   const [deviceLifecycle, setDeviceLifecycle] = useState<{
@@ -167,6 +184,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           setAllowanceGB(plan.allowanceBytes ? (plan.allowanceBytes / 1024 ** 3).toString() : '')
           setBillingDay(plan.billingDay.toString())
           setState({ kind: 'ready', usage, month, history, status })
+          setLastUpdatedAt(new Date())
         },
       )
       .catch((error: unknown) =>
@@ -175,6 +193,21 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           message: error instanceof Error ? error.message : 'Unknown error',
         }),
       )
+  }, [])
+
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine)
+    window.addEventListener('online', updateOnline)
+    window.addEventListener('offline', updateOnline)
+    return () => {
+      window.removeEventListener('online', updateOnline)
+      window.removeEventListener('offline', updateOnline)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -211,8 +244,12 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           setState((current) =>
             current.kind === 'ready' ? { ...current, usage, month, status } : current,
           )
+          setLastUpdatedAt(new Date())
+          setRefreshError('')
         })
-        .catch(() => undefined)
+        .catch((error: unknown) =>
+          setRefreshError(error instanceof Error ? error.message : 'Automatic refresh failed'),
+        )
     }, 30_000)
     return () => window.clearInterval(timer)
   }, [])
@@ -344,6 +381,8 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     }
   }
 
+  const stale = lastUpdatedAt !== null && now - lastUpdatedAt.getTime() > 90_000
+
   return (
     <div className="dashboard-shell">
       <aside className="dashboard-sidebar">
@@ -400,6 +439,9 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             <h1>Network overview</h1>
             <p className="page-subtitle">
               Your fibre usage, devices, and router health at a glance.
+              {lastUpdatedAt && (
+                <span className="last-updated"> Updated {relativeTime(lastUpdatedAt, now)}</span>
+              )}
             </p>
           </div>
           <Group
@@ -456,6 +498,46 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             icon={<IconAlertTriangle size={20} />}
           >
             {state.message}. Verify that the local API is running and accessible.
+          </Alert>
+        )}
+
+        {!online && (
+          <Alert
+            className="dashboard-alert"
+            color="red"
+            title="You are offline"
+            icon={<IconCloudOff size={20} />}
+          >
+            Live updates are paused. The dashboard will reconnect automatically when the network
+            returns.
+          </Alert>
+        )}
+
+        {online && state.kind === 'ready' && (stale || refreshError) && (
+          <Alert
+            className="dashboard-alert"
+            color="orange"
+            title={stale ? 'Dashboard data may be stale' : 'Live refresh failed'}
+            icon={<IconAlertTriangle size={20} />}
+            withCloseButton
+            onClose={() => setRefreshError('')}
+          >
+            <Group
+              justify="space-between"
+              align="center"
+            >
+              <Text size="sm">
+                {refreshError || 'No successful refresh has completed in the last 90 seconds.'}
+              </Text>
+              <Button
+                size="xs"
+                variant="light"
+                color="orange"
+                onClick={() => window.location.reload()}
+              >
+                Retry now
+              </Button>
+            </Group>
           </Alert>
         )}
 
@@ -673,12 +755,15 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                   </Menu>
                 </div>
                 {series && <UsageInsights series={series} />}
-                {!!series?.points.length &&
-                  (granularity === 'hour' ? (
-                    <UsageHeatmap series={series} />
-                  ) : (
-                    <UsageBars series={series} />
-                  ))}
+                {!!series?.points.length && (
+                  <Suspense fallback={<ChartSkeleton />}>
+                    {granularity === 'hour' ? (
+                      <UsageHeatmap series={series} />
+                    ) : (
+                      <UsageBars series={series} />
+                    )}
+                  </Suspense>
+                )}
                 {!series?.points.length && (
                   <div className="empty-chart">
                     No stored readings exist for this period. History starts when the collector
@@ -771,27 +856,33 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             </div>
 
             {deviceDialog && (
-              <DeviceDialog
-                state={deviceDialog}
-                onClose={() => setDeviceDialog(null)}
-              />
+              <Suspense fallback={null}>
+                <DeviceDialog
+                  state={deviceDialog}
+                  onClose={() => setDeviceDialog(null)}
+                />
+              </Suspense>
             )}
             {editingDevice && (
-              <EditDeviceDialog
-                device={editingDevice}
-                onClose={() => setEditingDevice(null)}
-                onSave={saveDevice}
-              />
+              <Suspense fallback={null}>
+                <EditDeviceDialog
+                  device={editingDevice}
+                  onClose={() => setEditingDevice(null)}
+                  onSave={saveDevice}
+                />
+              </Suspense>
             )}
             {deviceLifecycle && (
-              <DeviceLifecycleDialog
-                device={deviceLifecycle.device}
-                action={deviceLifecycle.action}
-                onClose={() => setDeviceLifecycle(null)}
-                onConfirm={() =>
-                  changeDeviceLifecycle(deviceLifecycle.device, deviceLifecycle.action)
-                }
-              />
+              <Suspense fallback={null}>
+                <DeviceLifecycleDialog
+                  device={deviceLifecycle.device}
+                  action={deviceLifecycle.action}
+                  onClose={() => setDeviceLifecycle(null)}
+                  onConfirm={() =>
+                    changeDeviceLifecycle(deviceLifecycle.device, deviceLifecycle.action)
+                  }
+                />
+              </Suspense>
             )}
 
             <section
@@ -878,4 +969,28 @@ function UsageInsights({ series }: { series: UsageSeries }) {
       </div>
     </div>
   )
+}
+
+function ChartSkeleton() {
+  return (
+    <div
+      className="chart-loading"
+      role="status"
+      aria-live="polite"
+    >
+      <Skeleton
+        height={250}
+        radius="md"
+      />
+      <span className="sr-only">Loading usage chart</span>
+    </div>
+  )
+}
+
+function relativeTime(value: Date, now: number) {
+  const seconds = Math.max(0, Math.round((now - value.getTime()) / 1000))
+  if (seconds < 10) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}m ago`
 }
