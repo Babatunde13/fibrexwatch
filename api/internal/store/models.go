@@ -95,3 +95,28 @@ type DataPlan struct {
 	AlertThresholds []int32   `json:"alertThresholds"`
 	UpdatedAt       time.Time `json:"updatedAt"`
 }
+type ReportSchedule struct {
+	Frequency string    `json:"frequency"`
+	Weekday   int       `json:"weekday"`
+	MonthDay  int       `json:"monthDay"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+type ReportDay struct {
+	Date          string `json:"date"`
+	DownloadBytes int64  `json:"downloadBytes"`
+	UploadBytes   int64  `json:"uploadBytes"`
+	TotalBytes    int64  `json:"totalBytes"`
+	ReadingCount  int64  `json:"readingCount"`
+}
+type GeneratedReport struct {
+	ID            int64       `json:"id"`
+	Source        string      `json:"source"`
+	Frequency     string      `json:"frequency"`
+	PeriodStart   time.Time   `json:"-"`
+	PeriodEnd     time.Time   `json:"-"`
+	DownloadBytes int64       `json:"downloadBytes"`
+	UploadBytes   int64       `json:"uploadBytes"`
+	ReadingCount  int64       `json:"readingCount"`
+	Days          []ReportDay `json:"days,omitempty"`
+	GeneratedAt   time.Time   `json:"generatedAt"`
+}

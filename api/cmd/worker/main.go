@@ -59,7 +59,7 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("ingestion worker started", "adapter", source, "interval", cfg.CollectionInterval)
-	ingestor := collector.New(logger, db, adapter, source, cfg.CollectionInterval)
+	ingestor := collector.New(logger, db, adapter, source, cfg.CollectionInterval, cfg.Timezone)
 	if *once {
 		if err := ingestor.RunOnce(ctx); err != nil {
 			logger.Error("one-shot ingestion failed", "error", err)

@@ -1,15 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Badge, Button, Group, Loader, SegmentedControl, TextInput } from '@mantine/core'
+import {
+  Alert,
+  Badge,
+  Button,
+  Group,
+  Loader,
+  NumberInput,
+  SegmentedControl,
+  Select,
+  TextInput,
+} from '@mantine/core'
 import {
   IconAlertTriangle,
   IconArrowDown,
   IconArrowUp,
+  IconCalendarTime,
+  IconCheck,
   IconFileTypeCsv,
   IconJson,
   IconPrinter,
 } from '@tabler/icons-react'
-import { getUsageSeries, usageCSVURL, usageJSONURL } from '../api'
-import type { UsageSeries } from '../types'
+import {
+  generatedReportURL,
+  getGeneratedReports,
+  getReportSchedule,
+  getUsageSeries,
+  saveReportSchedule,
+  usageCSVURL,
+  usageJSONURL,
+} from '../api'
+import type { GeneratedReport, ReportSchedule, UsageSeries } from '../types'
 import { dateValue } from '../utils/dates'
 import { formatBytes } from '../utils/format'
 
@@ -24,6 +44,14 @@ export function ReportsPage() {
   const [customFrom, setCustomFrom] = useState(initialCustomRange.from)
   const [customTo, setCustomTo] = useState(initialCustomRange.to)
   const [customRange, setCustomRange] = useState(initialCustomRange)
+  const [schedule, setSchedule] = useState<ReportSchedule | null>(null)
+  const [scheduleLoading, setScheduleLoading] = useState(true)
+  const [scheduleSaving, setScheduleSaving] = useState(false)
+  const [scheduleError, setScheduleError] = useState('')
+  const [scheduleSaved, setScheduleSaved] = useState(false)
+  const [archives, setArchives] = useState<GeneratedReport[]>([])
+  const [archivesLoading, setArchivesLoading] = useState(true)
+  const [archivesError, setArchivesError] = useState('')
   const range = useMemo(() => reportRange(period, customRange), [period, customRange])
 
   const applyCustomRange = () => {
@@ -42,6 +70,73 @@ export function ReportsPage() {
     }
     setCustomRange({ from: customFrom, to: customTo, label: 'Custom report' })
     setPeriod('custom')
+  }
+
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      void getReportSchedule()
+        .then((result) => {
+          if (active) setSchedule(result)
+        })
+        .catch((reason: unknown) => {
+          if (active) {
+            setScheduleError(reason instanceof Error ? reason.message : 'Could not load schedule')
+          }
+        })
+        .finally(() => {
+          if (active) setScheduleLoading(false)
+        })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      void getGeneratedReports()
+        .then((result) => {
+          if (active) setArchives(result.reports)
+        })
+        .catch((reason: unknown) => {
+          if (active) {
+            setArchivesError(
+              reason instanceof Error ? reason.message : 'Could not load report archive',
+            )
+          }
+        })
+        .finally(() => {
+          if (active) setArchivesLoading(false)
+        })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [])
+
+  const updateSchedule = async () => {
+    if (!schedule) return
+    setScheduleSaving(true)
+    setScheduleError('')
+    setScheduleSaved(false)
+    try {
+      setSchedule(
+        await saveReportSchedule({
+          frequency: schedule.frequency,
+          weekday: schedule.weekday,
+          monthDay: schedule.monthDay,
+        }),
+      )
+      setScheduleSaved(true)
+    } catch (reason) {
+      setScheduleError(reason instanceof Error ? reason.message : 'Could not save schedule')
+    } finally {
+      setScheduleSaving(false)
+    }
   }
 
   useEffect(() => {
@@ -270,9 +365,193 @@ export function ReportsPage() {
           </article>
         </>
       )}
+      <article className="panel report-schedule">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-label">Local automation</p>
+            <h2>Recurring reports</h2>
+            <p>
+              Organise usage into recurring periods. Reports remain local and become available in
+              this dashboard after each period closes.
+            </p>
+          </div>
+          <IconCalendarTime size={24} />
+        </div>
+        {scheduleLoading && (
+          <div className="schedule-loading">
+            <Loader size="sm" /> Loading schedule…
+          </div>
+        )}
+        {scheduleError && (
+          <Alert
+            color="red"
+            title="Schedule unavailable"
+            icon={<IconAlertTriangle size={18} />}
+          >
+            {scheduleError}
+          </Alert>
+        )}
+        {!scheduleLoading && schedule && (
+          <form
+            className="schedule-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void updateSchedule()
+            }}
+          >
+            <Select
+              label="Frequency"
+              value={schedule.frequency}
+              data={[
+                { value: 'off', label: 'Off' },
+                { value: 'weekly', label: 'Weekly' },
+                { value: 'monthly', label: 'Monthly' },
+              ]}
+              allowDeselect={false}
+              onChange={(value) =>
+                setSchedule({
+                  ...schedule,
+                  frequency: value ?? 'off',
+                })
+              }
+            />
+            {schedule.frequency === 'weekly' && (
+              <Select
+                label="Period closes on"
+                value={String(schedule.weekday)}
+                allowDeselect={false}
+                data={weekdays.map((label, value) => ({ value: String(value), label }))}
+                onChange={(value) => setSchedule({ ...schedule, weekday: Number(value) })}
+              />
+            )}
+            {schedule.frequency === 'monthly' && (
+              <NumberInput
+                label="Period closes on day"
+                value={schedule.monthDay}
+                min={1}
+                max={28}
+                onChange={(value) => setSchedule({ ...schedule, monthDay: Number(value) || 1 })}
+              />
+            )}
+            <Button
+              type="submit"
+              color="dark"
+              loading={scheduleSaving}
+            >
+              Save schedule
+            </Button>
+            <div
+              className="schedule-status"
+              aria-live="polite"
+            >
+              {schedule.frequency === 'off' ? (
+                <span>Recurring reports are off.</span>
+              ) : (
+                <span>
+                  Next report period closes{' '}
+                  <strong>{schedule.nextReportAt || 'after saving'}</strong>.
+                </span>
+              )}
+              {scheduleSaved && (
+                <Badge
+                  color="teal"
+                  variant="light"
+                  leftSection={<IconCheck size={12} />}
+                >
+                  Saved
+                </Badge>
+              )}
+            </div>
+          </form>
+        )}
+      </article>
+      <article className="panel report-archive">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-label">Immutable snapshots</p>
+            <h2>Report archive</h2>
+            <p>
+              Closed periods are generated by the worker and preserved with their original totals.
+            </p>
+          </div>
+          <Badge variant="light">{archives.length} saved</Badge>
+        </div>
+        {archivesLoading && (
+          <div className="schedule-loading">
+            <Loader size="sm" /> Loading archive…
+          </div>
+        )}
+        {archivesError && (
+          <Alert
+            color="red"
+            title="Archive unavailable"
+            icon={<IconAlertTriangle size={18} />}
+          >
+            {archivesError}
+          </Alert>
+        )}
+        {!archivesLoading && !archivesError && !archives.length && (
+          <div className="archive-empty">
+            <strong>No archived reports yet</strong>
+            <span>Enable a schedule. The worker will save the most recently closed period.</span>
+          </div>
+        )}
+        {!!archives.length && (
+          <div className="archive-list">
+            {archives.map((report) => (
+              <div
+                className="archive-row"
+                key={report.id}
+              >
+                <div>
+                  <Badge
+                    color="gray"
+                    variant="light"
+                  >
+                    {report.frequency}
+                  </Badge>
+                  <strong>
+                    {report.periodStart} – {report.periodEnd}
+                  </strong>
+                  <span>Generated {new Date(report.generatedAt).toLocaleString()}</span>
+                </div>
+                <div className="archive-total">
+                  <span>Total usage</span>
+                  <strong>{formatBytes(report.totalBytes)}</strong>
+                </div>
+                <Group
+                  gap="xs"
+                  className="archive-actions"
+                >
+                  <Button
+                    component="a"
+                    href={generatedReportURL(report.id, 'csv')}
+                    size="compact-sm"
+                    variant="default"
+                    leftSection={<IconFileTypeCsv size={14} />}
+                  >
+                    CSV
+                  </Button>
+                  <Button
+                    component="a"
+                    href={generatedReportURL(report.id, 'json')}
+                    size="compact-sm"
+                    variant="default"
+                    leftSection={<IconJson size={14} />}
+                  >
+                    JSON
+                  </Button>
+                </Group>
+              </div>
+            ))}
+          </div>
+        )}
+      </article>
     </section>
   )
 }
+
+const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function ReportMetric({ label, value }: { label: string; value: string }) {
   return (

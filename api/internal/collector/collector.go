@@ -17,27 +17,31 @@ type Collector struct {
 	adapter  router.Adapter
 	source   string
 	interval time.Duration
+	location *time.Location
 	status   store.WorkerStatus
 	loaded   bool
 }
 
-func New(logger *slog.Logger, repository *store.Store, adapter router.Adapter, source string, interval time.Duration) *Collector {
+func New(logger *slog.Logger, repository *store.Store, adapter router.Adapter, source string, interval time.Duration, location *time.Location) *Collector {
 	now := time.Now()
 	return &Collector{
-		logger: logger, store: repository, adapter: adapter, source: source, interval: interval,
+		logger: logger, store: repository, adapter: adapter, source: source, interval: interval, location: location,
 		status: store.WorkerStatus{Source: source, InstanceID: fmt.Sprintf("%s:%d", hostname(), os.Getpid()), StartedAt: now, HeartbeatAt: now},
 	}
 }
 
 func (c *Collector) Run(ctx context.Context) {
 	c.loadPreviousStatus(ctx)
+	c.runScheduledReport(ctx)
 	c.runCollection(ctx)
 	next := time.NewTimer(c.interval)
 	requests := time.NewTicker(2 * time.Second)
 	heartbeat := time.NewTicker(10 * time.Second)
+	reports := time.NewTicker(time.Minute)
 	defer next.Stop()
 	defer requests.Stop()
 	defer heartbeat.Stop()
+	defer reports.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -65,17 +69,36 @@ func (c *Collector) Run(ctx context.Context) {
 			if err := c.store.UpdateWorkerStatus(ctx, c.status); err != nil {
 				c.logger.Error("store worker heartbeat", "error", err)
 			}
+		case <-reports.C:
+			c.runScheduledReport(ctx)
 		}
 	}
 }
 
 func (c *Collector) RunOnce(ctx context.Context) error {
 	c.loadPreviousStatus(ctx)
+	c.runScheduledReport(ctx)
 	c.runDeviceControl(ctx)
 	c.runRouterScan(ctx)
 	err := c.collect(ctx)
 	c.recordResult(ctx, err)
 	return err
+}
+
+func (c *Collector) runScheduledReport(ctx context.Context) {
+	report, err := c.store.GenerateScheduledReport(ctx, c.source, c.location.String(), time.Now().In(c.location))
+	if err != nil {
+		c.logger.Error("generate scheduled report", "error", err)
+		return
+	}
+	if report == nil {
+		return
+	}
+	message := fmt.Sprintf("%s usage report is ready for %s to %s.", report.Frequency, report.PeriodStart.Format(time.DateOnly), report.PeriodEnd.Format(time.DateOnly))
+	if err := c.store.RecordCollectorEvent(ctx, "report_ready", message); err != nil {
+		c.logger.Error("store report ready event", "error", err)
+	}
+	c.logger.Info("scheduled report generated", "reportId", report.ID, "frequency", report.Frequency)
 }
 
 type routerDiscoveryAdapter interface {

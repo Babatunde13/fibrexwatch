@@ -115,6 +115,24 @@ export type UsageSeries = {
     readingCount: number
   }>
 }
+export type ReportSchedule = {
+  frequency: 'off' | 'weekly' | 'monthly'
+  weekday: number
+  monthDay: number
+  updatedAt: string
+  nextReportAt: string
+}
+export type GeneratedReport = {
+  id: number
+  frequency: 'weekly' | 'monthly'
+  periodStart: string
+  periodEnd: string
+  downloadBytes: number
+  uploadBytes: number
+  totalBytes: number
+  readingCount: number
+  generatedAt: string
+}
 export type RouterCapabilities = {
   adapter: string
   connectionCounters: boolean

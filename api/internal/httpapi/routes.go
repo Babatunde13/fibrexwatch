@@ -42,6 +42,10 @@ func New(logger *slog.Logger, repository *store.Store, redisClient *redis.Client
 	protected.HandleFunc("GET /api/v1/devices/{id}/history", a.deviceHistory)
 	protected.HandleFunc("GET /api/v1/settings/data-plan", a.getDataPlan)
 	protected.HandleFunc("PATCH /api/v1/settings/data-plan", a.saveDataPlan)
+	protected.HandleFunc("GET /api/v1/settings/report-schedule", a.getReportSchedule)
+	protected.HandleFunc("PATCH /api/v1/settings/report-schedule", a.saveReportSchedule)
+	protected.HandleFunc("GET /api/v1/reports", a.generatedReports)
+	protected.HandleFunc("GET /api/v1/reports/{id}", a.generatedReport)
 
 	auth := newAuthenticator(repository, redisClient, cfg.AuthSessionTTL, cfg.AuthCookieSecure)
 	mux := http.NewServeMux()
