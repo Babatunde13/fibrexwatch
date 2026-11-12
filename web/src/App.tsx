@@ -20,6 +20,7 @@ import {
 import { notifications } from '@mantine/notifications'
 import {
   IconAlertTriangle,
+  IconActivityHeartbeat,
   IconCloudOff,
   IconCalendarStats,
   IconChartDonut,
@@ -45,6 +46,7 @@ import {
   blockDevice,
   deleteDevice,
   getDailyUsage,
+  getCollectorEvents,
   getDevice,
   getDeviceHistory,
   getDevices,
@@ -64,6 +66,7 @@ import {
 } from './api'
 import type {
   DataPlan,
+  CollectorEvent,
   Device,
   PlanUsage,
   RouterCapabilities,
@@ -109,6 +112,62 @@ type LoadState =
       status: SystemStatus
     }
 
+type PageRoute = 'overview' | 'analytics' | 'devices' | 'health' | 'settings'
+
+const pageRoutes: Array<{
+  page: PageRoute
+  path: string
+  label: string
+  icon: typeof IconGauge
+  title: string
+  description: string
+}> = [
+  {
+    page: 'overview',
+    path: '/',
+    label: 'Overview',
+    icon: IconGauge,
+    title: 'Network overview',
+    description: 'Your fibre usage, devices, and router health at a glance.',
+  },
+  {
+    page: 'analytics',
+    path: '/analytics',
+    label: 'Analytics',
+    icon: IconChartDonut,
+    title: 'Usage analytics',
+    description: 'Explore usage patterns, compare periods, and export your history.',
+  },
+  {
+    page: 'devices',
+    path: '/devices',
+    label: 'Devices',
+    icon: IconDevices,
+    title: 'Connected devices',
+    description: 'Identify, organise, and review devices seen on your network.',
+  },
+  {
+    page: 'health',
+    path: '/network-health',
+    label: 'Network health',
+    icon: IconActivityHeartbeat,
+    title: 'Network health',
+    description: 'Monitor collection freshness, router reachability, and service status.',
+  },
+  {
+    page: 'settings',
+    path: '/settings',
+    label: 'Settings',
+    icon: IconSettings,
+    title: 'Settings',
+    description: 'Configure your data plan and local dashboard preferences.',
+  },
+]
+
+function routeFromPath(pathname: string): PageRoute {
+  return pageRoutes.find((route) => route.path === pathname)?.page ?? 'overview'
+}
+
 export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
@@ -127,6 +186,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const [granularity, setGranularity] = useState<UsageSeries['granularity']>('day')
   const [series, setSeries] = useState<UsageSeries | null>(null)
   const [capabilities, setCapabilities] = useState<RouterCapabilities | null>(null)
+  const [collectorEvents, setCollectorEvents] = useState<CollectorEvent[]>([])
   const [newDeviceCount, setNewDeviceCount] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState('')
@@ -142,6 +202,24 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     if (typeof Notification === 'undefined') return 'unsupported'
     return Notification.permission
   })
+  const [page, setPage] = useState<PageRoute>(() => routeFromPath(window.location.pathname))
+  const pageMeta = pageRoutes.find((route) => route.page === page) ?? pageRoutes[0]
+
+  useEffect(() => {
+    const handlePopState = () => setPage(routeFromPath(window.location.pathname))
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
+    document.title = `${pageMeta.title} · FibreX`
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pageMeta.title])
+
+  const navigate = (nextPage: PageRoute, path: string) => {
+    if (window.location.pathname !== path) window.history.pushState({}, '', path)
+    setPage(nextPage)
+  }
 
   useEffect(() => {
     document.documentElement.dataset.theme = colorScheme
@@ -160,6 +238,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       getPlanUsage(),
       getUsageSeries(initialMonthRange.from, initialMonthRange.to, 'day'),
       getRouterCapabilities(),
+      getCollectorEvents(),
     ])
       .then(
         ([
@@ -172,6 +251,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           planState,
           usageSeries,
           routerCapabilities,
+          collectorEventResult,
         ]) => {
           setDevices(deviceResult.devices)
           setNewDeviceCount(
@@ -181,6 +261,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           setPlanUsage(planState)
           setSeries(usageSeries)
           setCapabilities(routerCapabilities)
+          setCollectorEvents(collectorEventResult.events)
           setAllowanceGB(plan.allowanceBytes ? (plan.allowanceBytes / 1024 ** 3).toString() : '')
           setBillingDay(plan.billingDay.toString())
           setState({ kind: 'ready', usage, month, history, status })
@@ -234,13 +315,15 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
         getSystemStatus(),
         getDevices(true),
         getPlanUsage(),
+        getCollectorEvents(),
       ])
-        .then(([usage, month, status, deviceResult, planState]) => {
+        .then(([usage, month, status, deviceResult, planState, collectorEventResult]) => {
           setDevices(deviceResult.devices)
           setNewDeviceCount(
             recentDeviceCount(deviceResult.devices.filter((device) => !device.archivedAt)),
           )
           setPlanUsage(planState)
+          setCollectorEvents(collectorEventResult.events)
           setState((current) =>
             current.kind === 'ready' ? { ...current, usage, month, status } : current,
           )
@@ -399,21 +482,23 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           className="sidebar-nav"
           aria-label="Dashboard sections"
         >
-          <a
-            href="#overview"
-            className="active"
-          >
-            <IconGauge size={19} /> Overview
-          </a>
-          <a href="#usage">
-            <IconChartDonut size={19} /> Usage
-          </a>
-          <a href="#devices">
-            <IconDevices size={19} /> Devices
-          </a>
-          <a href="#data-plan">
-            <IconCalendarStats size={19} /> Data plan
-          </a>
+          {pageRoutes.map((route) => {
+            const NavIcon = route.icon
+            return (
+              <a
+                key={route.page}
+                href={route.path}
+                className={page === route.page ? 'active' : undefined}
+                aria-current={page === route.page ? 'page' : undefined}
+                onClick={(event) => {
+                  event.preventDefault()
+                  navigate(route.page, route.path)
+                }}
+              >
+                <NavIcon size={19} /> {route.label}
+              </a>
+            )
+          })}
         </nav>
         <div className="sidebar-status">
           <span
@@ -431,14 +516,14 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       </aside>
       <main
         className="dashboard-main"
-        id="overview"
+        id="main-content"
       >
         <header className="topbar">
           <div>
             <p className="eyebrow">Local network analytics</p>
-            <h1>Network overview</h1>
+            <h1>{pageMeta.title}</h1>
             <p className="page-subtitle">
-              Your fibre usage, devices, and router health at a glance.
+              {pageMeta.description}
               {lastUpdatedAt && (
                 <span className="last-updated"> Updated {relativeTime(lastUpdatedAt, now)}</span>
               )}
@@ -554,7 +639,8 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               </Alert>
             )}
 
-            {planUsage?.configured &&
+            {page === 'overview' &&
+              planUsage?.configured &&
               planUsage.alertThresholds.some(
                 (threshold) => planUsage.usedPercentage >= threshold,
               ) && (
@@ -572,6 +658,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             <section
               className="metrics"
               aria-label="Today's usage"
+              hidden={page !== 'overview'}
             >
               <Metric
                 label="Used today"
@@ -607,7 +694,10 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             </section>
 
             {planUsage?.configured && (
-              <section className="plan-overview-card">
+              <section
+                className="plan-overview-card"
+                hidden={page !== 'overview'}
+              >
                 <div className="plan-ring">
                   <RingProgress
                     size={112}
@@ -646,7 +736,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                 </div>
               </section>
             )}
-            {planUsage?.projectedExhaustionDate && (
+            {page === 'overview' && planUsage?.projectedExhaustionDate && (
               <Alert
                 className="dashboard-alert"
                 color="orange"
@@ -658,11 +748,22 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               </Alert>
             )}
 
+            {page === 'health' && (
+              <NetworkHealthSummary
+                status={state.status}
+                events={collectorEvents}
+                now={now}
+              />
+            )}
+
             <section
-              className="grid"
-              id="usage"
+              className="grid single-panel"
+              hidden={!['overview', 'analytics', 'health'].includes(page)}
             >
-              <article className="panel usage-history">
+              <article
+                className="panel usage-history"
+                hidden={page !== 'analytics'}
+              >
                 <div className="panel-heading">
                   <div>
                     <p className="panel-label">History</p>
@@ -772,7 +873,10 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                 )}
               </article>
 
-              <article className="panel status-panel">
+              <article
+                className="panel status-panel"
+                hidden={page !== 'overview' && page !== 'health'}
+              >
                 <div className="collector-heading">
                   <span
                     className={`collector-icon ${state.status.collectorState === 'running' ? 'online' : ''}`}
@@ -838,7 +942,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               </article>
             </section>
 
-            <div id="devices">
+            <div hidden={page !== 'devices'}>
               <DeviceListPanel
                 devices={devices}
                 search={deviceSearch}
@@ -887,7 +991,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
 
             <section
               className="panel plan-settings"
-              id="data-plan"
+              hidden={page !== 'settings'}
             >
               <div>
                 <p className="panel-label">MTN allowance</p>
@@ -935,6 +1039,118 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       </main>
     </div>
   )
+}
+
+function NetworkHealthSummary({
+  status,
+  events,
+  now,
+}: {
+  status: SystemStatus
+  events: CollectorEvent[]
+  now: number
+}) {
+  const lastReading = status.lastCollectedAt ? new Date(status.lastCollectedAt) : null
+  const readingAge = lastReading ? Math.max(0, now - lastReading.getTime()) : null
+  const expectedInterval = status.collectionIntervalSeconds * 1000
+  let freshness = 'No readings yet'
+  if (readingAge !== null) freshness = readingAge <= expectedInterval * 2 ? 'Fresh' : 'Delayed'
+  const workerUptime = status.worker
+    ? formatDuration(Math.max(0, now - new Date(status.worker.startedAt).getTime()))
+    : 'Unavailable'
+
+  return (
+    <section
+      className="network-health"
+      aria-label="Network health summary"
+    >
+      <div className="health-metrics">
+        <article className="health-metric">
+          <span>Current state</span>
+          <strong>{status.collectorState.replaceAll('-', ' ')}</strong>
+          <small>{status.routerConfigured ? 'Router configured' : 'Setup required'}</small>
+        </article>
+        <article className="health-metric">
+          <span>Reading freshness</span>
+          <strong>{freshness}</strong>
+          <small>
+            {lastReading ? relativeTime(lastReading, now) : 'Waiting for first collection'}
+          </small>
+        </article>
+        <article className="health-metric">
+          <span>Worker uptime</span>
+          <strong>{workerUptime}</strong>
+          <small>
+            {status.worker
+              ? `Started ${new Date(status.worker.startedAt).toLocaleString()}`
+              : 'No heartbeat'}
+          </small>
+        </article>
+        <article className="health-metric">
+          <span>Consecutive failures</span>
+          <strong>{status.worker?.consecutiveFailures ?? '—'}</strong>
+          <small>{status.worker?.lastError || 'No active collection error'}</small>
+        </article>
+      </div>
+
+      <article className="panel event-timeline-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-label">Operational history</p>
+            <h2>Collector events</h2>
+          </div>
+          <Badge
+            variant="light"
+            color={events.length ? 'orange' : 'teal'}
+          >
+            {events.length ? `${events.length} recent` : 'All clear'}
+          </Badge>
+        </div>
+        {events.length ? (
+          <ol className="event-timeline">
+            {events.map((event) => (
+              <li key={event.id}>
+                <span className={`event-marker ${eventTone(event.eventType)}`} />
+                <div>
+                  <strong>{eventLabel(event.eventType)}</strong>
+                  <p>{event.message || 'The collector recorded this operational event.'}</p>
+                </div>
+                <time dateTime={event.occurredAt}>
+                  {new Date(event.occurredAt).toLocaleString()}
+                </time>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="health-empty-state">
+            <IconWifi size={28} />
+            <strong>No collector incidents recorded</strong>
+            <span>Failures, counter resets, and collection gaps will appear here.</span>
+          </div>
+        )}
+      </article>
+    </section>
+  )
+}
+
+function eventLabel(eventType: string) {
+  return eventType.replaceAll('_', ' ').replace(/^./, (character) => character.toUpperCase())
+}
+
+function eventTone(eventType: string) {
+  if (eventType.includes('fail') || eventType.includes('error')) return 'danger'
+  if (eventType.includes('reset') || eventType.includes('gap')) return 'warning'
+  return 'neutral'
+}
+
+function formatDuration(milliseconds: number) {
+  const totalMinutes = Math.floor(milliseconds / 60_000)
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  if (days) return `${days}d ${hours}h`
+  if (hours) return `${hours}h ${minutes}m`
+  return `${minutes}m`
 }
 
 function UsageInsights({ series }: { series: UsageSeries }) {

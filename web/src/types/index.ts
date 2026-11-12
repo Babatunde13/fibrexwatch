@@ -23,6 +23,23 @@ export type SystemStatus = {
   lastCollectedAt: string | null
   collectionIntervalSeconds: number
   timezone: string
+  worker: {
+    source: string
+    instanceId: string
+    startedAt: string
+    heartbeatAt: string
+    lastAttemptAt: string | null
+    lastSuccessAt: string | null
+    lastError: string
+    consecutiveFailures: number
+  } | null
+}
+
+export type CollectorEvent = {
+  id: number
+  occurredAt: string
+  eventType: string
+  message: string
 }
 
 export type DailyUsage = {

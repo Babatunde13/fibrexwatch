@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -50,4 +51,23 @@ func (a *api) collectNow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 202, map[string]any{"requestId": id, "status": "queued"})
+}
+
+func (a *api) collectorEvents(w http.ResponseWriter, r *http.Request) {
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 200 {
+			writeJSON(w, 400, map[string]string{"error": "limit must be between 1 and 200"})
+			return
+		}
+		limit = parsed
+	}
+	events, err := a.store.ListCollectorEvents(r.Context(), limit)
+	if err != nil {
+		a.logger.Error("load collector events", "error", err)
+		writeJSON(w, 500, map[string]string{"error": "load collector events"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"events": events})
 }

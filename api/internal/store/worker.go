@@ -98,6 +98,31 @@ func (s *Store) RecordCollectorEvent(ctx context.Context, eventType, detail stri
 	return nil
 }
 
+func (s *Store) ListCollectorEvents(ctx context.Context, limit int) ([]CollectorEvent, error) {
+	rows, err := s.db.Query(ctx, `
+		select id,occurred_at,event_type,coalesce(detail->>'message','')
+		from collector_events
+		order by occurred_at desc,id desc
+		limit $1`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list collector events: %w", err)
+	}
+	defer rows.Close()
+
+	events := make([]CollectorEvent, 0)
+	for rows.Next() {
+		var event CollectorEvent
+		if err := rows.Scan(&event.ID, &event.OccurredAt, &event.EventType, &event.Message); err != nil {
+			return nil, fmt.Errorf("scan collector event: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate collector events: %w", err)
+	}
+	return events, nil
+}
+
 func (s *Store) QueueDeviceBlock(ctx context.Context, deviceID int64, ssidName string) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx, `

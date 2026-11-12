@@ -30,6 +30,12 @@ type WorkerStatus struct {
 	LastError           string     `json:"lastError"`
 	ConsecutiveFailures int        `json:"consecutiveFailures"`
 }
+type CollectorEvent struct {
+	ID         int64     `json:"id"`
+	OccurredAt time.Time `json:"occurredAt"`
+	EventType  string    `json:"eventType"`
+	Message    string    `json:"message"`
+}
 type DeviceSummary struct {
 	ID             int64      `json:"id"`
 	MACAddress     string     `json:"macAddress"`
