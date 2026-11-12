@@ -30,6 +30,7 @@ import {
   IconGauge,
   IconFileTypeCsv,
   IconJson,
+  IconBulb,
   IconLogout,
   IconMoon,
   IconRefresh,
@@ -97,6 +98,9 @@ const NetworkHealthPage = lazy(() =>
     default: module.NetworkHealthPage,
   })),
 )
+const InsightsPage = lazy(() =>
+  import('./components/InsightsPage').then((module) => ({ default: module.InsightsPage })),
+)
 const DeviceDialog = lazy(() =>
   import('./components/DeviceDialog').then((module) => ({ default: module.DeviceDialog })),
 )
@@ -120,7 +124,7 @@ type LoadState =
       status: SystemStatus
     }
 
-type PageRoute = 'overview' | 'analytics' | 'devices' | 'health' | 'settings'
+type PageRoute = 'overview' | 'analytics' | 'devices' | 'insights' | 'health' | 'settings'
 
 const pageRoutes: Array<{
   page: PageRoute
@@ -153,6 +157,14 @@ const pageRoutes: Array<{
     icon: IconDevices,
     title: 'Connected devices',
     description: 'Identify, organise, and review devices seen on your network.',
+  },
+  {
+    page: 'insights',
+    path: '/insights',
+    label: 'Insights',
+    icon: IconBulb,
+    title: 'Usage insights',
+    description: 'See meaningful changes, forecasts, and network findings in plain language.',
   },
   {
     page: 'health',
@@ -762,6 +774,19 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                   status={state.status}
                   events={collectorEvents}
                   now={now}
+                />
+              </Suspense>
+            )}
+
+            {page === 'insights' && (
+              <Suspense fallback={<RouteSkeleton />}>
+                <InsightsPage
+                  usage={state.usage}
+                  series={series}
+                  plan={planUsage}
+                  devices={devices}
+                  status={state.status}
+                  newDeviceCount={newDeviceCount}
                 />
               </Suspense>
             )}
