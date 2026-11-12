@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   ActionIcon,
   Alert,
@@ -218,8 +218,11 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const [billingDay, setBillingDay] = useState('1')
   const [granularity, setGranularity] = useState<UsageSeries['granularity']>('day')
   const [series, setSeries] = useState<UsageSeries | null>(null)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
   const [capabilities, setCapabilities] = useState<RouterCapabilities | null>(null)
   const [collectorEvents, setCollectorEvents] = useState<CollectorEvent[]>([])
+  const [collectorEventsLoaded, setCollectorEventsLoaded] = useState(false)
+  const [collectorEventsError, setCollectorEventsError] = useState('')
   const [newDeviceCount, setNewDeviceCount] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState('')
@@ -264,43 +267,37 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     Promise.all([
       getTodayUsage(),
       getMonthUsage(),
-      getDailyUsage(initialMonthRange.from, initialMonthRange.to),
       getSystemStatus(),
       getDevices(true),
       getDataPlan(),
       getPlanUsage(),
-      getUsageSeries(initialMonthRange.from, initialMonthRange.to, 'day'),
-      getRouterCapabilities(),
-      getCollectorEvents(),
     ])
-      .then(
-        ([
+      .then(([usage, month, status, deviceResult, plan, planState]) => {
+        setDevices(deviceResult.devices)
+        setNewDeviceCount(
+          recentDeviceCount(deviceResult.devices.filter((device) => !device.archivedAt)),
+        )
+        setDataPlan(plan)
+        setPlanUsage(planState)
+        setAllowanceGB(plan.allowanceBytes ? (plan.allowanceBytes / 1024 ** 3).toString() : '')
+        setBillingDay(plan.billingDay.toString())
+        setState({
+          kind: 'ready',
           usage,
           month,
-          history,
+          history: {
+            from: initialMonthRange.from,
+            to: initialMonthRange.to,
+            available: false,
+            downloadBytes: 0,
+            uploadBytes: 0,
+            totalBytes: 0,
+            days: [],
+          },
           status,
-          deviceResult,
-          plan,
-          planState,
-          usageSeries,
-          routerCapabilities,
-          collectorEventResult,
-        ]) => {
-          setDevices(deviceResult.devices)
-          setNewDeviceCount(
-            recentDeviceCount(deviceResult.devices.filter((device) => !device.archivedAt)),
-          )
-          setDataPlan(plan)
-          setPlanUsage(planState)
-          setSeries(usageSeries)
-          setCapabilities(routerCapabilities)
-          setCollectorEvents(collectorEventResult.events)
-          setAllowanceGB(plan.allowanceBytes ? (plan.allowanceBytes / 1024 ** 3).toString() : '')
-          setBillingDay(plan.billingDay.toString())
-          setState({ kind: 'ready', usage, month, history, status })
-          setLastUpdatedAt(new Date())
-        },
-      )
+        })
+        setLastUpdatedAt(new Date())
+      })
       .catch((error: unknown) =>
         setState({
           kind: 'error',
@@ -342,13 +339,15 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
+      const eventRequest =
+        page === 'health' || page === 'alerts' ? getCollectorEvents() : Promise.resolve(null)
       void Promise.all([
         getTodayUsage(),
         getMonthUsage(),
         getSystemStatus(),
         getDevices(true),
         getPlanUsage(),
-        getCollectorEvents(),
+        eventRequest,
       ])
         .then(([usage, month, status, deviceResult, planState, collectorEventResult]) => {
           setDevices(deviceResult.devices)
@@ -356,7 +355,11 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             recentDeviceCount(deviceResult.devices.filter((device) => !device.archivedAt)),
           )
           setPlanUsage(planState)
-          setCollectorEvents(collectorEventResult.events)
+          if (collectorEventResult) {
+            setCollectorEvents(collectorEventResult.events)
+            setCollectorEventsLoaded(true)
+            setCollectorEventsError('')
+          }
           setState((current) =>
             current.kind === 'ready' ? { ...current, usage, month, status } : current,
           )
@@ -368,26 +371,63 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
         )
     }, 30_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [page])
 
-  const loadHistory = async (rangeFrom: string, rangeTo: string, month?: string) => {
-    if (state.kind !== 'ready') return
-    setHistoryLoading(true)
-    setHistoryError('')
-    try {
-      const [history, selectedMonth, usageSeries] = await Promise.all([
-        getDailyUsage(rangeFrom, rangeTo),
-        month ? getMonthUsage(month) : Promise.resolve(state.month),
-        getUsageSeries(rangeFrom, rangeTo, granularity),
-      ])
-      setSeries(usageSeries)
-      setState({ ...state, history, month: selectedMonth })
-    } catch (error) {
-      setHistoryError(error instanceof Error ? error.message : 'Could not load usage history')
-    } finally {
-      setHistoryLoading(false)
+  const loadHistory = useCallback(
+    async (rangeFrom: string, rangeTo: string, month?: string) => {
+      setHistoryLoading(true)
+      setHistoryError('')
+      try {
+        const [history, selectedMonth, usageSeries] = await Promise.all([
+          getDailyUsage(rangeFrom, rangeTo),
+          month ? getMonthUsage(month) : Promise.resolve(null),
+          getUsageSeries(rangeFrom, rangeTo, granularity),
+        ])
+        setSeries(usageSeries)
+        setHistoryLoaded(true)
+        setState((current) =>
+          current.kind === 'ready'
+            ? { ...current, history, month: selectedMonth ?? current.month }
+            : current,
+        )
+      } catch (error) {
+        setHistoryError(error instanceof Error ? error.message : 'Could not load usage history')
+      } finally {
+        setHistoryLoading(false)
+      }
+    },
+    [granularity],
+  )
+
+  useEffect(() => {
+    if (state.kind !== 'ready' || historyLoaded) return
+    if (page === 'analytics' || page === 'insights') {
+      const timer = window.setTimeout(() => void loadHistory(from, to), 0)
+      return () => window.clearTimeout(timer)
     }
-  }
+  }, [from, historyLoaded, loadHistory, page, state.kind, to])
+
+  useEffect(() => {
+    if (page !== 'devices' || capabilities) return
+    void getRouterCapabilities()
+      .then(setCapabilities)
+      .catch(() => undefined)
+  }, [capabilities, page])
+
+  useEffect(() => {
+    if ((page !== 'health' && page !== 'alerts') || collectorEventsLoaded) return
+    void getCollectorEvents()
+      .then((result) => {
+        setCollectorEvents(result.events)
+        setCollectorEventsLoaded(true)
+        setCollectorEventsError('')
+      })
+      .catch((error: unknown) =>
+        setCollectorEventsError(
+          error instanceof Error ? error.message : 'Could not load collector events',
+        ),
+      )
+  }, [collectorEventsLoaded, page])
 
   const selectMonth = (month: string) => {
     setMonthFilter(month)
@@ -781,46 +821,95 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               </Alert>
             )}
 
-            {page === 'health' && (
-              <Suspense fallback={<RouteSkeleton />}>
-                <NetworkHealthPage
-                  status={state.status}
-                  events={collectorEvents}
-                  now={now}
-                />
-              </Suspense>
+            {page === 'health' && collectorEventsError && (
+              <Alert
+                color="red"
+                title="Could not load network history"
+                icon={<IconAlertTriangle size={20} />}
+              >
+                {collectorEventsError}
+              </Alert>
             )}
+            {page === 'health' &&
+              !collectorEventsError &&
+              (collectorEventsLoaded ? (
+                <Suspense fallback={<RouteSkeleton />}>
+                  <NetworkHealthPage
+                    status={state.status}
+                    events={collectorEvents}
+                    now={now}
+                  />
+                </Suspense>
+              ) : (
+                <RouteSkeleton />
+              ))}
 
-            {page === 'insights' && (
-              <Suspense fallback={<RouteSkeleton />}>
-                <InsightsPage
-                  usage={state.usage}
-                  series={series}
-                  plan={planUsage}
-                  devices={devices}
-                  status={state.status}
-                  newDeviceCount={newDeviceCount}
-                />
-              </Suspense>
+            {page === 'insights' && historyError && (
+              <Alert
+                color="red"
+                title="Could not calculate insights"
+                icon={<IconAlertTriangle size={20} />}
+              >
+                {historyError}
+              </Alert>
             )}
+            {page === 'insights' &&
+              !historyError &&
+              (historyLoaded ? (
+                <Suspense fallback={<RouteSkeleton />}>
+                  <InsightsPage
+                    usage={state.usage}
+                    series={series}
+                    plan={planUsage}
+                    devices={devices}
+                    status={state.status}
+                    newDeviceCount={newDeviceCount}
+                  />
+                </Suspense>
+              ) : (
+                <RouteSkeleton />
+              ))}
 
-            {page === 'alerts' && (
-              <Suspense fallback={<RouteSkeleton />}>
-                <AlertsPage
-                  events={collectorEvents}
-                  plan={planUsage}
-                  devices={devices}
-                  status={state.status}
-                  newDeviceCount={newDeviceCount}
-                />
-              </Suspense>
+            {page === 'alerts' && collectorEventsError && (
+              <Alert
+                color="red"
+                title="Could not load alerts"
+                icon={<IconAlertTriangle size={20} />}
+              >
+                {collectorEventsError}
+              </Alert>
             )}
+            {page === 'alerts' &&
+              !collectorEventsError &&
+              (collectorEventsLoaded ? (
+                <Suspense fallback={<RouteSkeleton />}>
+                  <AlertsPage
+                    events={collectorEvents}
+                    plan={planUsage}
+                    devices={devices}
+                    status={state.status}
+                    newDeviceCount={newDeviceCount}
+                  />
+                </Suspense>
+              ) : (
+                <RouteSkeleton />
+              ))}
 
             <section
               className="grid single-panel"
               hidden={!['overview', 'analytics', 'health'].includes(page)}
             >
-              {page === 'analytics' && (
+              {page === 'analytics' && !historyLoaded && !historyError && <RouteSkeleton />}
+              {page === 'analytics' && !historyLoaded && historyError && (
+                <Alert
+                  color="red"
+                  title="Could not load usage history"
+                  icon={<IconAlertTriangle size={20} />}
+                >
+                  {historyError}
+                </Alert>
+              )}
+              {page === 'analytics' && historyLoaded && (
                 <article className="panel usage-history">
                   <div className="panel-heading">
                     <div>
