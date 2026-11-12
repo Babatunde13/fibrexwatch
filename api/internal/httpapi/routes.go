@@ -23,6 +23,8 @@ func New(logger *slog.Logger, repository *store.Store, redisClient *redis.Client
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /api/v1/status", a.status)
 	protected.HandleFunc("GET /api/v1/router", a.routerCapabilities)
+	protected.HandleFunc("GET /api/v1/router/scan", a.latestRouterScan)
+	protected.HandleFunc("POST /api/v1/router/scan", a.queueRouterScan)
 	protected.HandleFunc("POST /api/v1/collector/run", a.collectNow)
 	protected.HandleFunc("GET /api/v1/collector/events", a.collectorEvents)
 	protected.HandleFunc("GET /api/v1/usage/today", a.today)

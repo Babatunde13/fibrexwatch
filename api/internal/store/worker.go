@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -126,6 +127,81 @@ func (s *Store) ListCollectorEvents(ctx context.Context, limit int) ([]Collector
 		return nil, fmt.Errorf("iterate collector events: %w", err)
 	}
 	return events, nil
+}
+
+func (s *Store) QueueRouterScan(ctx context.Context, source string) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		insert into router_scan_requests (source)
+		values ($1)
+		on conflict (source) where completed_at is null
+		do update set requested_at=router_scan_requests.requested_at
+		returning id`, source).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("queue router scan: %w", err)
+	}
+	return id, nil
+}
+
+func (s *Store) PendingRouterScan(ctx context.Context, source string) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		update router_scan_requests
+		set started_at=now()
+		where id=(
+			select id from router_scan_requests
+			where source=$1 and completed_at is null
+				and (started_at is null or started_at < now()-interval '1 minute')
+			order by requested_at limit 1 for update skip locked
+		)
+		returning id`, source).Scan(&id)
+	if isNoRows(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("claim router scan: %w", err)
+	}
+	return id, nil
+}
+
+func (s *Store) CompleteRouterScan(ctx context.Context, id int64, result any, scanErr error) error {
+	encoded := []byte(`{}`)
+	message := ""
+	if scanErr != nil {
+		message = scanErr.Error()
+	} else {
+		var err error
+		encoded, err = json.Marshal(result)
+		if err != nil {
+			return fmt.Errorf("encode router scan: %w", err)
+		}
+	}
+	_, err := s.db.Exec(ctx, `
+		update router_scan_requests
+		set completed_at=now(),error=$2,result=$3::jsonb
+		where id=$1`, id, message, string(encoded))
+	if err != nil {
+		return fmt.Errorf("complete router scan: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) LatestRouterScan(ctx context.Context, source string) (*RouterScan, error) {
+	var scan RouterScan
+	err := s.db.QueryRow(ctx, `
+		select id,source,requested_at,started_at,completed_at,error,result
+		from router_scan_requests where source=$1
+		order by requested_at desc limit 1`, source).Scan(
+		&scan.ID, &scan.Source, &scan.RequestedAt, &scan.StartedAt,
+		&scan.CompletedAt, &scan.Error, &scan.Result,
+	)
+	if isNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get latest router scan: %w", err)
+	}
+	return &scan, nil
 }
 
 func (s *Store) QueueDeviceBlock(ctx context.Context, deviceID int64, ssidName string) (int64, error) {

@@ -47,6 +47,7 @@ func (c *Collector) Run(ctx context.Context) {
 			next.Reset(delay)
 		case <-requests.C:
 			c.runDeviceControl(ctx)
+			c.runRouterScan(ctx)
 			requestID, err := c.store.PendingCollectionRequest(ctx, c.source)
 			if err != nil {
 				c.logger.Error("poll collection requests", "error", err)
@@ -71,9 +72,41 @@ func (c *Collector) Run(ctx context.Context) {
 func (c *Collector) RunOnce(ctx context.Context) error {
 	c.loadPreviousStatus(ctx)
 	c.runDeviceControl(ctx)
+	c.runRouterScan(ctx)
 	err := c.collect(ctx)
 	c.recordResult(ctx, err)
 	return err
+}
+
+type routerDiscoveryAdapter interface {
+	Discovery(context.Context) (router.HuaweiDiscovery, error)
+}
+
+func (c *Collector) runRouterScan(ctx context.Context) {
+	requestID, err := c.store.PendingRouterScan(ctx, c.source)
+	if err != nil {
+		c.logger.Error("poll router scan requests", "error", err)
+		return
+	}
+	if requestID == 0 {
+		return
+	}
+	adapter, supported := c.adapter.(routerDiscoveryAdapter)
+	if !supported {
+		err = router.ErrCapabilityUnsupported
+	} else {
+		scanContext, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		var discovery router.HuaweiDiscovery
+		discovery, err = adapter.Discovery(scanContext)
+		if completeErr := c.store.CompleteRouterScan(ctx, requestID, discovery, err); completeErr != nil {
+			c.logger.Error("complete router scan", "error", completeErr)
+		}
+		return
+	}
+	if completeErr := c.store.CompleteRouterScan(ctx, requestID, nil, err); completeErr != nil {
+		c.logger.Error("complete router scan", "error", completeErr)
+	}
 }
 
 func (c *Collector) runDeviceControl(ctx context.Context) {

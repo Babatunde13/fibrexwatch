@@ -10,23 +10,23 @@ import (
 // HuaweiDiscovery contains sanitized metadata about authenticated, local-only
 // resources exposed by a Huawei router interface.
 type HuaweiDiscovery struct {
-	LandingPath  string
-	AssetPaths   []string
-	PagePaths    []string
-	DataFields   []string
-	Structures   []string
-	CounterPages []HuaweiCounterPage
+	LandingPath  string              `json:"landingPath"`
+	AssetPaths   []string            `json:"assetPaths"`
+	PagePaths    []string            `json:"pagePaths"`
+	DataFields   []string            `json:"dataFields"`
+	Structures   []string            `json:"structures"`
+	CounterPages []HuaweiCounterPage `json:"counterPages"`
 }
 
 // HuaweiCounterPage describes a potential statistics page without retaining
 // response values, credentials, cookies, or other sensitive router data.
 type HuaweiCounterPage struct {
-	Path        string
-	Fields      []string
-	Structures  []string
-	References  []string
-	InitClues   []string
-	Assignments []string
+	Path        string   `json:"path"`
+	Fields      []string `json:"fields"`
+	Structures  []string `json:"structures"`
+	References  []string `json:"references"`
+	InitClues   []string `json:"initClues"`
+	Assignments []string `json:"-"`
 }
 
 var huaweiCounterCandidates = []string{

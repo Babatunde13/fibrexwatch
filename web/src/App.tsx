@@ -32,6 +32,7 @@ import {
   IconJson,
   IconBulb,
   IconBell,
+  IconFileSearch,
   IconLogout,
   IconMoon,
   IconRefresh,
@@ -105,6 +106,11 @@ const InsightsPage = lazy(() =>
 const AlertsPage = lazy(() =>
   import('./components/AlertsPage').then((module) => ({ default: module.AlertsPage })),
 )
+const RouterInspectorPage = lazy(() =>
+  import('./components/RouterInspectorPage').then((module) => ({
+    default: module.RouterInspectorPage,
+  })),
+)
 const DeviceDialog = lazy(() =>
   import('./components/DeviceDialog').then((module) => ({ default: module.DeviceDialog })),
 )
@@ -129,7 +135,7 @@ type LoadState =
     }
 
 type PageRoute =
-  'overview' | 'analytics' | 'devices' | 'insights' | 'alerts' | 'health' | 'settings'
+  'overview' | 'analytics' | 'devices' | 'insights' | 'alerts' | 'inspector' | 'health' | 'settings'
 
 const pageRoutes: Array<{
   page: PageRoute
@@ -178,6 +184,14 @@ const pageRoutes: Array<{
     icon: IconBell,
     title: 'Alerts',
     description: 'Review collector incidents, allowance warnings, and device notifications.',
+  },
+  {
+    page: 'inspector',
+    path: '/router-inspector',
+    label: 'Inspector',
+    icon: IconFileSearch,
+    title: 'Router Inspector',
+    description: 'Safely inventory sanitized pages and capabilities exposed by your router.',
   },
   {
     page: 'health',
@@ -894,6 +908,12 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               ) : (
                 <RouteSkeleton />
               ))}
+
+            {page === 'inspector' && (
+              <Suspense fallback={<RouteSkeleton />}>
+                <RouterInspectorPage />
+              </Suspense>
+            )}
 
             <section
               className="grid single-panel"

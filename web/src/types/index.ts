@@ -123,6 +123,28 @@ export type RouterCapabilities = {
   deviceBlocking: boolean
   perDeviceUsageReason: string
 }
+export type RouterScan = {
+  id: number
+  source: string
+  requestedAt: string
+  startedAt: string | null
+  completedAt: string | null
+  error: string
+  result: {
+    landingPath: string
+    assetPaths: string[]
+    pagePaths: string[]
+    dataFields: string[]
+    structures: string[]
+    counterPages: Array<{
+      path: string
+      fields: string[]
+      structures: string[]
+      references: string[]
+      initClues: string[]
+    }>
+  }
+}
 export type DeviceDetail = {
   device: Device
   addresses: Array<{ ipAddress: string; firstSeenAt: string; lastSeenAt: string }>

@@ -1,6 +1,9 @@
 package store
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type UsageSummary struct {
 	DownloadBytes int64
@@ -35,6 +38,15 @@ type CollectorEvent struct {
 	OccurredAt time.Time `json:"occurredAt"`
 	EventType  string    `json:"eventType"`
 	Message    string    `json:"message"`
+}
+type RouterScan struct {
+	ID          int64           `json:"id"`
+	Source      string          `json:"source"`
+	RequestedAt time.Time       `json:"requestedAt"`
+	StartedAt   *time.Time      `json:"startedAt"`
+	CompletedAt *time.Time      `json:"completedAt"`
+	Error       string          `json:"error"`
+	Result      json.RawMessage `json:"result"`
 }
 type DeviceSummary struct {
 	ID             int64      `json:"id"`
