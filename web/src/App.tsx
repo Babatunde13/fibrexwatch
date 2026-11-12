@@ -36,6 +36,7 @@ import {
   IconLogout,
   IconMoon,
   IconRefresh,
+  IconReportAnalytics,
   IconSparkles,
   IconSettings,
   IconSun,
@@ -111,6 +112,9 @@ const RouterInspectorPage = lazy(() =>
     default: module.RouterInspectorPage,
   })),
 )
+const ReportsPage = lazy(() =>
+  import('./components/ReportsPage').then((module) => ({ default: module.ReportsPage })),
+)
 const DeviceDialog = lazy(() =>
   import('./components/DeviceDialog').then((module) => ({ default: module.DeviceDialog })),
 )
@@ -135,7 +139,15 @@ type LoadState =
     }
 
 type PageRoute =
-  'overview' | 'analytics' | 'devices' | 'insights' | 'alerts' | 'inspector' | 'health' | 'settings'
+  | 'overview'
+  | 'analytics'
+  | 'devices'
+  | 'insights'
+  | 'reports'
+  | 'alerts'
+  | 'inspector'
+  | 'health'
+  | 'settings'
 
 const pageRoutes: Array<{
   page: PageRoute
@@ -176,6 +188,14 @@ const pageRoutes: Array<{
     icon: IconBulb,
     title: 'Usage insights',
     description: 'See meaningful changes, forecasts, and network findings in plain language.',
+  },
+  {
+    page: 'reports',
+    path: '/reports',
+    label: 'Reports',
+    icon: IconReportAnalytics,
+    title: 'Usage reports',
+    description: 'Generate clear weekly and monthly statements from your stored readings.',
   },
   {
     page: 'alerts',
@@ -914,6 +934,12 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             {page === 'inspector' && (
               <Suspense fallback={<RouteSkeleton />}>
                 <RouterInspectorPage />
+              </Suspense>
+            )}
+
+            {page === 'reports' && (
+              <Suspense fallback={<RouteSkeleton />}>
+                <ReportsPage />
               </Suspense>
             )}
 

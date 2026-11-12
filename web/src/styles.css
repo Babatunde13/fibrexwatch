@@ -220,6 +220,28 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .counter-candidate > span { color: #777b83; font-size: .74rem; }
 .counter-candidate > div { display: flex; grid-column: 1 / -1; flex-wrap: wrap; gap: 6px; }
 .inspector-empty { margin: 0; color: #858a92; font-size: .78rem; }
+.reports-page { display: grid; gap: 14px; }
+.reports-toolbar { display: flex; min-height: auto; align-items: center; justify-content: space-between; gap: 20px; }
+.reports-toolbar h2 { margin: 3px 0; }
+.reports-toolbar > div > span { color: #858a92; font-size: .76rem; }
+.reports-loading, .reports-empty { display: grid; min-height: 220px; place-items: center; align-content: center; gap: 8px; color: #7d828b; text-align: center; }
+.report-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.report-summary-grid article { padding: 20px; border: 1px solid #e3e5e8; border-radius: 14px; background: rgba(255,255,255,.92); }
+.report-summary-grid span, .report-summary-grid strong { display: block; }
+.report-summary-grid span { color: #777b83; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+.report-summary-grid strong { margin-top: 9px; font-size: 1.2rem; }
+.report-detail { min-height: auto; }
+.report-comparison { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 20px 0; }
+.report-comparison > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #e6e8eb; border-radius: 10px; }
+.report-comparison span { color: #777b83; font-size: .75rem; }
+.report-comparison strong { display: flex; align-items: center; gap: 3px; font-size: .8rem; }
+.report-comparison .increase { color: #bd5b16; }
+.report-comparison .decrease { color: #138653; }
+.report-table-wrap { overflow-x: auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.report-table th, .report-table td { padding: 13px 10px; border-top: 1px solid #eceef1; text-align: left; white-space: nowrap; }
+.report-table th { color: #777b83; font-size: .68rem; text-transform: uppercase; }
+.reports-empty span { font-size: .78rem; }
 .inspector-history { min-height: auto; }
 .inspection-list { display: grid; margin-top: 18px; }
 .inspection-row { display: grid; grid-template-columns: auto minmax(160px, 1fr) auto minmax(180px, auto); align-items: center; gap: 12px; padding: 13px 4px; border-top: 1px solid #eceef1; }
@@ -352,6 +374,9 @@ dd { margin: 0; font-weight: 700; text-align: right; }
   .inspector-guardrail { align-items: flex-start; flex-wrap: wrap; }
   .inspector-guardrail .mantine-Button-root { width: 100%; margin-left: 0; }
   .inspector-summary-grid { grid-template-columns: 1fr; }
+  .reports-toolbar { align-items: stretch; flex-direction: column; }
+  .reports-toolbar .mantine-SegmentedControl-root { width: 100%; overflow-x: auto; }
+  .report-summary-grid, .report-comparison { grid-template-columns: 1fr; }
   .scan-comparison > div:first-child, .comparison-baseline { align-items: flex-start; flex-direction: column; }
   .inspection-row { grid-template-columns: auto 1fr auto; }
   .inspection-count { grid-column: 2 / -1; text-align: left; }
@@ -398,6 +423,8 @@ dd { margin: 0; font-weight: 700; text-align: right; }
 :root[data-theme="dark"] .inspector-guardrail { border-color: #315443; background: #1d2d25; }
 :root[data-theme="dark"] .inspector-guardrail > span { background: #294636; color: #77d6a6; }
 :root[data-theme="dark"] .inspector-summary-grid article { border-color: #454138; background: #24221c; }
+:root[data-theme="dark"] .report-summary-grid article { border-color: #454138; background: #24221c; }
+:root[data-theme="dark"] .report-comparison > div, :root[data-theme="dark"] .report-table th, :root[data-theme="dark"] .report-table td { border-color: #454138; }
 :root[data-theme="dark"] .scan-comparison { border-color: #3d4c43; background: #222a25; }
 :root[data-theme="dark"] .inspector-section, :root[data-theme="dark"] .counter-candidates { border-color: #454138; }
 :root[data-theme="dark"] .inspector-section code, :root[data-theme="dark"] .counter-candidate code { background: #302e27; color: #e1ddd4; }
