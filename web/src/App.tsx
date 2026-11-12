@@ -50,6 +50,7 @@ import {
   blockDevice,
   deleteDevice,
   getDailyUsage,
+  getGeneratedReports,
   getCollectorEvents,
   getDevice,
   getDeviceHistory,
@@ -258,6 +259,8 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const [collectorEventsLoaded, setCollectorEventsLoaded] = useState(false)
   const [collectorEventsError, setCollectorEventsError] = useState('')
   const [newDeviceCount, setNewDeviceCount] = useState(0)
+  const [newReportCount, setNewReportCount] = useState(0)
+  const [latestReportID, setLatestReportID] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [refreshError, setRefreshError] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -288,6 +291,10 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
 
   const navigate = (nextPage: PageRoute, path: string) => {
     if (window.location.pathname !== path) window.history.pushState({}, '', path)
+    if (nextPage === 'reports' && latestReportID) {
+      localStorage.setItem('fibrex-last-seen-report-id', String(latestReportID))
+      setNewReportCount(0)
+    }
     setPage(nextPage)
   }
 
@@ -370,6 +377,56 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     }
     localStorage.setItem(storageKey, JSON.stringify(activeDevices.map((device) => device.id)))
   }, [devices])
+
+  useEffect(() => {
+    let active = true
+    const seenKey = 'fibrex-last-seen-report-id'
+    const notifiedKey = 'fibrex-last-notified-report-id'
+    const checkReports = async () => {
+      try {
+        const result = await getGeneratedReports(1)
+        if (!active) return
+        const latest = result.reports[0]
+        if (!latest) return
+        setLatestReportID(latest.id)
+        if (window.location.pathname === '/reports') {
+          localStorage.setItem(seenKey, String(latest.id))
+          setNewReportCount(0)
+          return
+        }
+        const stored = localStorage.getItem(seenKey)
+        if (stored === null) {
+          localStorage.setItem(seenKey, String(latest.id))
+          localStorage.setItem(notifiedKey, String(latest.id))
+          return
+        }
+        const seen = Number(stored) || 0
+        const isNew = latest.id > seen
+        setNewReportCount(isNew ? 1 : 0)
+        const lastNotified = Number(localStorage.getItem(notifiedKey)) || 0
+        if (
+          isNew &&
+          latest.id > lastNotified &&
+          typeof Notification !== 'undefined' &&
+          Notification.permission === 'granted'
+        ) {
+          new Notification('Your FibreXWatch report is ready', {
+            body: `${latest.frequency === 'weekly' ? 'Weekly' : 'Monthly'} usage for ${latest.periodStart} to ${latest.periodEnd}.`,
+          })
+          localStorage.setItem(notifiedKey, String(latest.id))
+        }
+      } catch {
+        // Report awareness must not affect core dashboard refreshes.
+      }
+    }
+    const initial = window.setTimeout(() => void checkReports(), 2_000)
+    const timer = window.setInterval(() => void checkReports(), 60_000)
+    return () => {
+      active = false
+      window.clearTimeout(initial)
+      window.clearInterval(timer)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -599,12 +656,20 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                 href={route.path}
                 className={page === route.page ? 'active' : undefined}
                 aria-current={page === route.page ? 'page' : undefined}
+                aria-label={
+                  route.page === 'reports' && newReportCount
+                    ? `${route.label}, ${newReportCount} new report`
+                    : route.label
+                }
                 onClick={(event) => {
                   event.preventDefault()
                   navigate(route.page, route.path)
                 }}
               >
-                <NavIcon size={19} /> {route.label}
+                <NavIcon size={19} /> <span>{route.label}</span>
+                {route.page === 'reports' && newReportCount > 0 && (
+                  <span className="nav-notification">{newReportCount}</span>
+                )}
               </a>
             )
           })}
@@ -745,6 +810,27 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                 icon={<IconAlertTriangle size={20} />}
               >
                 {state.usage.unavailableReason}
+              </Alert>
+            )}
+
+            {page === 'overview' && newReportCount > 0 && (
+              <Alert
+                className="dashboard-alert"
+                color="teal"
+                title="A new usage report is ready"
+                icon={<IconReportAnalytics size={20} />}
+              >
+                <Group justify="space-between">
+                  <Text size="sm">The worker saved a new immutable report snapshot.</Text>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="teal"
+                    onClick={() => navigate('reports', '/reports')}
+                  >
+                    View report
+                  </Button>
+                </Group>
               </Alert>
             )}
 

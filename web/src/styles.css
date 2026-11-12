@@ -20,7 +20,8 @@ main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 80
 .sidebar-brand strong { font-size: 1.08rem; letter-spacing: -.03em; }
 .sidebar-brand small { margin-top: 2px; color: #7a7d84; font-size: .7rem; }
 .sidebar-nav { display: grid; gap: 6px; }
-.sidebar-nav a { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 10px; color: #666a72; font-size: .86rem; font-weight: 700; text-decoration: none; transition: background .16s ease, color .16s ease; }
+.sidebar-nav a { position: relative; display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 10px; color: #666a72; font-size: .86rem; font-weight: 700; text-decoration: none; transition: background .16s ease, color .16s ease; }
+.nav-notification { display: grid; min-width: 19px; height: 19px; margin-left: auto; padding: 0 5px; place-items: center; border-radius: 999px; background: #138653; color: #fff; font-size: .64rem; line-height: 1; }
 .sidebar-nav a:hover { background: #f1f2f4; color: #17181b; }
 .sidebar-nav a.active { background: #fff4c5; color: #443600; }
 .sidebar-nav a:focus-visible { outline: 3px solid rgba(255, 203, 5, .55); outline-offset: 2px; }
@@ -348,6 +349,7 @@ dd { margin: 0; font-weight: 700; text-align: right; }
   .sidebar-nav { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(64px, 1fr); gap: 4px; overflow-x: auto; padding: 8px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid #e3e5e8; background: rgba(255,255,255,.96); box-shadow: 0 -10px 30px rgba(20,24,32,.08); backdrop-filter: blur(18px); }
   .sidebar-nav a { min-width: 64px; flex-direction: column; gap: 4px; padding: 8px 5px; font-size: .65rem; line-height: 1.1; text-align: center; white-space: nowrap; }
   .sidebar-nav a svg { width: 20px; height: 20px; }
+  .sidebar-nav .nav-notification { position: absolute; top: 3px; right: 5px; min-width: 16px; height: 16px; margin: 0; padding: 0 4px; font-size: .58rem; }
   .sidebar-status { margin: 0 0 0 auto; padding: 9px 11px; }
   .dashboard-main { width: min(100% - 24px, 680px); margin: 0 auto; padding: 26px 0 calc(104px + env(safe-area-inset-bottom)); }
   .topbar { align-items: center; margin-bottom: 30px; }

@@ -34,7 +34,8 @@ export const saveReportSchedule = (
   schedule: Pick<ReportSchedule, 'frequency' | 'weekday' | 'monthDay'>,
 ) => patch<ReportSchedule>('/api/v1/settings/report-schedule', schedule)
 
-export const getGeneratedReports = () => get<{ reports: GeneratedReport[] }>('/api/v1/reports')
+export const getGeneratedReports = (limit = 24) =>
+  get<{ reports: GeneratedReport[] }>(`/api/v1/reports?limit=${limit}`)
 
 export const generatedReportURL = (id: number, format: 'csv' | 'json') =>
   `${apiBase}/api/v1/reports/${id}?format=${format}`

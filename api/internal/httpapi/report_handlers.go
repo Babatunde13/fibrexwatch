@@ -12,7 +12,16 @@ import (
 )
 
 func (a *api) generatedReports(w http.ResponseWriter, r *http.Request) {
-	reports, err := a.store.ListGeneratedReports(r.Context(), a.cfg.RouterAdapter, 24)
+	limit := 24
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 24 {
+			writeJSON(w, 400, map[string]string{"error": "limit must be between 1 and 24"})
+			return
+		}
+		limit = parsed
+	}
+	reports, err := a.store.ListGeneratedReports(r.Context(), a.cfg.RouterAdapter, limit)
 	if err != nil {
 		a.logger.Error("list generated reports", "error", err)
 		writeJSON(w, 500, map[string]string{"error": "list generated reports"})
