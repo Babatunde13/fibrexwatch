@@ -1,25 +1,48 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Badge, Button, Group, Loader, SegmentedControl } from '@mantine/core'
+import { Alert, Badge, Button, Group, Loader, SegmentedControl, TextInput } from '@mantine/core'
 import {
   IconAlertTriangle,
   IconArrowDown,
   IconArrowUp,
   IconFileTypeCsv,
   IconJson,
+  IconPrinter,
 } from '@tabler/icons-react'
 import { getUsageSeries, usageCSVURL, usageJSONURL } from '../api'
 import type { UsageSeries } from '../types'
 import { dateValue } from '../utils/dates'
 import { formatBytes } from '../utils/format'
 
-type ReportPeriod = 'week' | 'month' | 'previous-month'
+type ReportPeriod = 'week' | 'month' | 'previous-month' | 'custom'
 
 export function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('week')
   const [series, setSeries] = useState<UsageSeries | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const range = useMemo(() => reportRange(period), [period])
+  const initialCustomRange = useMemo(() => reportRange('week'), [])
+  const [customFrom, setCustomFrom] = useState(initialCustomRange.from)
+  const [customTo, setCustomTo] = useState(initialCustomRange.to)
+  const [customRange, setCustomRange] = useState(initialCustomRange)
+  const range = useMemo(() => reportRange(period, customRange), [period, customRange])
+
+  const applyCustomRange = () => {
+    if (!customFrom || !customTo) {
+      setError('Choose both a start and end date.')
+      return
+    }
+    if (customTo < customFrom) {
+      setError('The end date must be on or after the start date.')
+      return
+    }
+    const days = (new Date(customTo).getTime() - new Date(customFrom).getTime()) / 86_400_000
+    if (days > 366) {
+      setError('Custom reports cannot exceed 366 days.')
+      return
+    }
+    setCustomRange({ from: customFrom, to: customTo, label: 'Custom report' })
+    setPeriod('custom')
+  }
 
   useEffect(() => {
     let active = true
@@ -71,15 +94,48 @@ export function ReportsPage() {
             {range.from} – {range.to}
           </span>
         </div>
-        <SegmentedControl
-          value={period}
-          data={[
-            { value: 'week', label: 'Last 7 days' },
-            { value: 'month', label: 'This month' },
-            { value: 'previous-month', label: 'Previous month' },
-          ]}
-          onChange={(value) => setPeriod(value as ReportPeriod)}
-        />
+        <div className="report-filters">
+          <SegmentedControl
+            value={period}
+            data={[
+              { value: 'week', label: 'Last 7 days' },
+              { value: 'month', label: 'This month' },
+              { value: 'previous-month', label: 'Previous month' },
+              { value: 'custom', label: 'Custom' },
+            ]}
+            onChange={(value) => setPeriod(value as ReportPeriod)}
+          />
+          {period === 'custom' && (
+            <form
+              className="report-custom-range"
+              onSubmit={(event) => {
+                event.preventDefault()
+                applyCustomRange()
+              }}
+            >
+              <TextInput
+                label="From"
+                type="date"
+                value={customFrom}
+                max={customTo}
+                onChange={(event) => setCustomFrom(event.target.value)}
+              />
+              <TextInput
+                label="To"
+                type="date"
+                value={customTo}
+                min={customFrom}
+                onChange={(event) => setCustomTo(event.target.value)}
+              />
+              <Button
+                type="submit"
+                color="dark"
+              >
+                Apply
+              </Button>
+            </form>
+          )}
+        </div>
       </article>
 
       {error && (
@@ -123,7 +179,17 @@ export function ReportsPage() {
                 <p className="panel-label">Usage statement</p>
                 <h2>Daily breakdown</h2>
               </div>
-              <Group gap="xs">
+              <Group
+                gap="xs"
+                className="report-actions"
+              >
+                <Button
+                  variant="default"
+                  leftSection={<IconPrinter size={16} />}
+                  onClick={() => window.print()}
+                >
+                  Print
+                </Button>
                 <Button
                   component="a"
                   href={usageCSVURL(range.from, range.to, 'day')}
@@ -217,7 +283,8 @@ function ReportMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function reportRange(period: ReportPeriod) {
+function reportRange(period: ReportPeriod, custom = { from: '', to: '', label: 'Custom report' }) {
+  if (period === 'custom') return custom
   const today = new Date()
   if (period === 'week') {
     const from = new Date(today)
