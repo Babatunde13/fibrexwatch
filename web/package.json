@@ -36,5 +36,8 @@
     "globals": "latest",
     "prettier": "^3.9.6",
     "typescript-eslint": "latest"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
   }
 }

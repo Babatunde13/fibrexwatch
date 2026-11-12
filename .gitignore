@@ -4,6 +4,9 @@ api/bin/
 api/logs/
 api/run/
 api/server
+api/worker
+api/users
+api/coverage.out
 web/node_modules/
 web/dist/
 coverage/

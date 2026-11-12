@@ -10,7 +10,7 @@ See [the operations runbook](docs/RUNBOOK.md) for complete setup and maintenance
 
 ## Requirements
 
-- Go 1.26.6+
+- Go 1.26.11+
 - Node.js 22+
 - Docker with Compose
 

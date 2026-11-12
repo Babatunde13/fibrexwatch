@@ -13,7 +13,7 @@ Thanks for helping improve FibreXWatch. Contributions can include bug fixes, rou
 
 Requirements:
 
-- Go 1.26.6 or later
+- Go 1.26.11 or later
 - Node.js 22 or later
 - Docker with Docker Compose v2
 - pre-commit (recommended)

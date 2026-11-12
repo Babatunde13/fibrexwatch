@@ -461,18 +461,20 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
         message: 'The worker is fetching a fresh router snapshot.',
         color: 'mtn',
       })
-      window.setTimeout(async () => {
-        try {
-          const [usage, month, history, status] = await Promise.all([
-            getTodayUsage(),
-            getMonthUsage(state.month.period),
-            getDailyUsage(state.history.from, state.history.to),
-            getSystemStatus(),
-          ])
-          setState({ kind: 'ready', usage, month, history, status })
-        } finally {
-          setCollecting(false)
-        }
+      window.setTimeout(() => {
+        void (async () => {
+          try {
+            const [usage, month, history, status] = await Promise.all([
+              getTodayUsage(),
+              getMonthUsage(state.month.period),
+              getDailyUsage(state.history.from, state.history.to),
+              getSystemStatus(),
+            ])
+            setState({ kind: 'ready', usage, month, history, status })
+          } finally {
+            setCollecting(false)
+          }
+        })()
       }, 2500)
     } catch (error) {
       notifications.show({
