@@ -79,7 +79,7 @@ import { currentMonth, initialMonthRange, monthRange } from './utils/dates'
 import { recentDeviceCount } from './utils/devices'
 import { formatBytes } from './utils/format'
 import type { DeviceDialogState } from './components/DeviceDialog'
-import { DeviceListPanel, type AlertStatus } from './components/DeviceListPanel'
+import type { AlertStatus } from './components/DeviceListPanel'
 import type { DeviceLifecycleAction } from './components/DeviceLifecycleDialog'
 import { Metric } from './components/Metric'
 
@@ -88,6 +88,14 @@ const UsageBars = lazy(() =>
 )
 const UsageHeatmap = lazy(() =>
   import('./components/UsageHeatmap').then((module) => ({ default: module.UsageHeatmap })),
+)
+const DeviceListPanel = lazy(() =>
+  import('./components/DeviceListPanel').then((module) => ({ default: module.DeviceListPanel })),
+)
+const NetworkHealthPage = lazy(() =>
+  import('./components/NetworkHealthPage').then((module) => ({
+    default: module.NetworkHealthPage,
+  })),
 )
 const DeviceDialog = lazy(() =>
   import('./components/DeviceDialog').then((module) => ({ default: module.DeviceDialog })),
@@ -749,215 +757,217 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
             )}
 
             {page === 'health' && (
-              <NetworkHealthSummary
-                status={state.status}
-                events={collectorEvents}
-                now={now}
-              />
+              <Suspense fallback={<RouteSkeleton />}>
+                <NetworkHealthPage
+                  status={state.status}
+                  events={collectorEvents}
+                  now={now}
+                />
+              </Suspense>
             )}
 
             <section
               className="grid single-panel"
               hidden={!['overview', 'analytics', 'health'].includes(page)}
             >
-              <article
-                className="panel usage-history"
-                hidden={page !== 'analytics'}
-              >
-                <div className="panel-heading">
-                  <div>
-                    <p className="panel-label">History</p>
-                    <h2>Daily usage</h2>
+              {page === 'analytics' && (
+                <article className="panel usage-history">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="panel-label">History</p>
+                      <h2>Daily usage</h2>
+                    </div>
+                    <TextInput
+                      className="month-picker"
+                      label="Month"
+                      type="month"
+                      value={monthFilter}
+                      onChange={(event) => selectMonth(event.target.value)}
+                    />
                   </div>
-                  <TextInput
-                    className="month-picker"
-                    label="Month"
-                    type="month"
-                    value={monthFilter}
-                    onChange={(event) => selectMonth(event.target.value)}
-                  />
-                </div>
-                <form
-                  className="date-filter"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void loadHistory(from, to)
-                  }}
-                >
-                  <TextInput
-                    label="From"
-                    type="date"
-                    value={from}
-                    onChange={(event) => setFrom(event.target.value)}
-                  />
-                  <TextInput
-                    label="To"
-                    type="date"
-                    value={to}
-                    min={from}
-                    onChange={(event) => setTo(event.target.value)}
-                  />
-                  <Button
-                    color="dark"
-                    type="submit"
-                    loading={historyLoading}
+                  <form
+                    className="date-filter"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void loadHistory(from, to)
+                    }}
                   >
-                    Apply range
-                  </Button>
-                </form>
-                {historyError && <p className="history-error">{historyError}</p>}
-                <div className="history-total">
-                  <span>
-                    {state.history.from} – {state.history.to}
-                  </span>
-                  <strong>{formatBytes(state.history.totalBytes)}</strong>
-                </div>
-                <div className="history-tools">
-                  <SegmentedControl
-                    className="granularity-control"
-                    value={granularity}
-                    data={[
-                      { value: 'hour', label: 'Hour' },
-                      { value: 'day', label: 'Day' },
-                      { value: 'week', label: 'Week' },
-                      { value: 'month', label: 'Month' },
-                    ]}
-                    onChange={(value) => void changeGranularity(value)}
-                  />
-                  <Menu
-                    shadow="md"
-                    position="bottom-end"
-                  >
-                    <Menu.Target>
-                      <Button
-                        variant="default"
-                        leftSection={<IconDownload size={16} />}
-                      >
-                        Export
-                      </Button>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      <Menu.Label>Download usage data</Menu.Label>
-                      <Menu.Item
-                        component="a"
-                        href={usageCSVURL(from, to, granularity)}
-                        leftSection={<IconFileTypeCsv size={17} />}
-                      >
-                        CSV spreadsheet
-                      </Menu.Item>
-                      <Menu.Item
-                        component="a"
-                        href={usageJSONURL(from, to, granularity)}
-                        leftSection={<IconJson size={17} />}
-                      >
-                        JSON data
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                </div>
-                {series && <UsageInsights series={series} />}
-                {!!series?.points.length && (
-                  <Suspense fallback={<ChartSkeleton />}>
-                    {granularity === 'hour' ? (
-                      <UsageHeatmap series={series} />
-                    ) : (
-                      <UsageBars series={series} />
-                    )}
-                  </Suspense>
-                )}
-                {!series?.points.length && (
-                  <div className="empty-chart">
-                    No stored readings exist for this period. History starts when the collector
-                    begins recording.
+                    <TextInput
+                      label="From"
+                      type="date"
+                      value={from}
+                      onChange={(event) => setFrom(event.target.value)}
+                    />
+                    <TextInput
+                      label="To"
+                      type="date"
+                      value={to}
+                      min={from}
+                      onChange={(event) => setTo(event.target.value)}
+                    />
+                    <Button
+                      color="dark"
+                      type="submit"
+                      loading={historyLoading}
+                    >
+                      Apply range
+                    </Button>
+                  </form>
+                  {historyError && <p className="history-error">{historyError}</p>}
+                  <div className="history-total">
+                    <span>
+                      {state.history.from} – {state.history.to}
+                    </span>
+                    <strong>{formatBytes(state.history.totalBytes)}</strong>
                   </div>
-                )}
-              </article>
+                  <div className="history-tools">
+                    <SegmentedControl
+                      className="granularity-control"
+                      value={granularity}
+                      data={[
+                        { value: 'hour', label: 'Hour' },
+                        { value: 'day', label: 'Day' },
+                        { value: 'week', label: 'Week' },
+                        { value: 'month', label: 'Month' },
+                      ]}
+                      onChange={(value) => void changeGranularity(value)}
+                    />
+                    <Menu
+                      shadow="md"
+                      position="bottom-end"
+                    >
+                      <Menu.Target>
+                        <Button
+                          variant="default"
+                          leftSection={<IconDownload size={16} />}
+                        >
+                          Export
+                        </Button>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Label>Download usage data</Menu.Label>
+                        <Menu.Item
+                          component="a"
+                          href={usageCSVURL(from, to, granularity)}
+                          leftSection={<IconFileTypeCsv size={17} />}
+                        >
+                          CSV spreadsheet
+                        </Menu.Item>
+                        <Menu.Item
+                          component="a"
+                          href={usageJSONURL(from, to, granularity)}
+                          leftSection={<IconJson size={17} />}
+                        >
+                          JSON data
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  </div>
+                  {series && <UsageInsights series={series} />}
+                  {!!series?.points.length && (
+                    <Suspense fallback={<ChartSkeleton />}>
+                      {granularity === 'hour' ? (
+                        <UsageHeatmap series={series} />
+                      ) : (
+                        <UsageBars series={series} />
+                      )}
+                    </Suspense>
+                  )}
+                  {!series?.points.length && (
+                    <div className="empty-chart">
+                      No stored readings exist for this period. History starts when the collector
+                      begins recording.
+                    </div>
+                  )}
+                </article>
+              )}
 
-              <article
-                className="panel status-panel"
-                hidden={page !== 'overview' && page !== 'health'}
-              >
-                <div className="collector-heading">
-                  <span
-                    className={`collector-icon ${state.status.collectorState === 'running' ? 'online' : ''}`}
+              {(page === 'overview' || page === 'health') && (
+                <article className="panel status-panel">
+                  <div className="collector-heading">
+                    <span
+                      className={`collector-icon ${state.status.collectorState === 'running' ? 'online' : ''}`}
+                    >
+                      <IconWifi size={22} />
+                    </span>
+                    <div>
+                      <p className="panel-label">Collector</p>
+                      <h2>System status</h2>
+                    </div>
+                    <Badge
+                      ml="auto"
+                      color={state.status.collectorState === 'running' ? 'teal' : 'orange'}
+                      variant="light"
+                    >
+                      {state.status.collectorState.replaceAll('-', ' ')}
+                    </Badge>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>Adapter</dt>
+                      <dd>{state.status.routerAdapter}</dd>
+                    </div>
+                    <div>
+                      <dt>Router</dt>
+                      <dd>{state.status.routerAddress || 'Not configured'}</dd>
+                    </div>
+                    <div>
+                      <dt>Interval</dt>
+                      <dd>{state.status.collectionIntervalSeconds}s</dd>
+                    </div>
+                    <div>
+                      <dt>Last reading</dt>
+                      <dd>
+                        {state.status.lastCollectedAt
+                          ? new Date(state.status.lastCollectedAt).toLocaleTimeString()
+                          : 'None'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Timezone</dt>
+                      <dd>{state.status.timezone}</dd>
+                    </div>
+                  </dl>
+                  <Button
+                    className="collect-button"
+                    color="dark"
+                    leftSection={
+                      collecting ? (
+                        <Loader
+                          size={15}
+                          color="gray"
+                        />
+                      ) : (
+                        <IconRefresh size={17} />
+                      )
+                    }
+                    disabled={collecting || state.status.collectorState === 'worker-offline'}
+                    onClick={() => void collectNow()}
                   >
-                    <IconWifi size={22} />
-                  </span>
-                  <div>
-                    <p className="panel-label">Collector</p>
-                    <h2>System status</h2>
-                  </div>
-                  <Badge
-                    ml="auto"
-                    color={state.status.collectorState === 'running' ? 'teal' : 'orange'}
-                    variant="light"
-                  >
-                    {state.status.collectorState.replaceAll('-', ' ')}
-                  </Badge>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Adapter</dt>
-                    <dd>{state.status.routerAdapter}</dd>
-                  </div>
-                  <div>
-                    <dt>Router</dt>
-                    <dd>{state.status.routerAddress || 'Not configured'}</dd>
-                  </div>
-                  <div>
-                    <dt>Interval</dt>
-                    <dd>{state.status.collectionIntervalSeconds}s</dd>
-                  </div>
-                  <div>
-                    <dt>Last reading</dt>
-                    <dd>
-                      {state.status.lastCollectedAt
-                        ? new Date(state.status.lastCollectedAt).toLocaleTimeString()
-                        : 'None'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Timezone</dt>
-                    <dd>{state.status.timezone}</dd>
-                  </div>
-                </dl>
-                <Button
-                  className="collect-button"
-                  color="dark"
-                  leftSection={
-                    collecting ? (
-                      <Loader
-                        size={15}
-                        color="gray"
-                      />
-                    ) : (
-                      <IconRefresh size={17} />
-                    )
-                  }
-                  disabled={collecting || state.status.collectorState === 'worker-offline'}
-                  onClick={() => void collectNow()}
-                >
-                  {collecting ? 'Collecting…' : 'Collect now'}
-                </Button>
-              </article>
+                    {collecting ? 'Collecting…' : 'Collect now'}
+                  </Button>
+                </article>
+              )}
             </section>
 
-            <div hidden={page !== 'devices'}>
-              <DeviceListPanel
-                devices={devices}
-                search={deviceSearch}
-                alertStatus={alertStatus}
-                capabilities={capabilities}
-                onSearch={setDeviceSearch}
-                onEnableAlerts={() => void enableDeviceAlerts()}
-                onHistory={(device) => void showDevice(device)}
-                onEdit={setEditingDevice}
-                onArchive={(device) => setDeviceLifecycle({ device, action: 'archive' })}
-                onRestore={(device) => setDeviceLifecycle({ device, action: 'restore' })}
-                onDelete={(device) => setDeviceLifecycle({ device, action: 'delete' })}
-                onBlock={(device) => setDeviceLifecycle({ device, action: 'block' })}
-              />
-            </div>
+            {page === 'devices' && (
+              <Suspense fallback={<RouteSkeleton />}>
+                <DeviceListPanel
+                  devices={devices}
+                  search={deviceSearch}
+                  alertStatus={alertStatus}
+                  capabilities={capabilities}
+                  onSearch={setDeviceSearch}
+                  onEnableAlerts={() => void enableDeviceAlerts()}
+                  onHistory={(device) => void showDevice(device)}
+                  onEdit={setEditingDevice}
+                  onArchive={(device) => setDeviceLifecycle({ device, action: 'archive' })}
+                  onRestore={(device) => setDeviceLifecycle({ device, action: 'restore' })}
+                  onDelete={(device) => setDeviceLifecycle({ device, action: 'delete' })}
+                  onBlock={(device) => setDeviceLifecycle({ device, action: 'block' })}
+                />
+              </Suspense>
+            )}
 
             {deviceDialog && (
               <Suspense fallback={null}>
@@ -1041,118 +1051,6 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   )
 }
 
-function NetworkHealthSummary({
-  status,
-  events,
-  now,
-}: {
-  status: SystemStatus
-  events: CollectorEvent[]
-  now: number
-}) {
-  const lastReading = status.lastCollectedAt ? new Date(status.lastCollectedAt) : null
-  const readingAge = lastReading ? Math.max(0, now - lastReading.getTime()) : null
-  const expectedInterval = status.collectionIntervalSeconds * 1000
-  let freshness = 'No readings yet'
-  if (readingAge !== null) freshness = readingAge <= expectedInterval * 2 ? 'Fresh' : 'Delayed'
-  const workerUptime = status.worker
-    ? formatDuration(Math.max(0, now - new Date(status.worker.startedAt).getTime()))
-    : 'Unavailable'
-
-  return (
-    <section
-      className="network-health"
-      aria-label="Network health summary"
-    >
-      <div className="health-metrics">
-        <article className="health-metric">
-          <span>Current state</span>
-          <strong>{status.collectorState.replaceAll('-', ' ')}</strong>
-          <small>{status.routerConfigured ? 'Router configured' : 'Setup required'}</small>
-        </article>
-        <article className="health-metric">
-          <span>Reading freshness</span>
-          <strong>{freshness}</strong>
-          <small>
-            {lastReading ? relativeTime(lastReading, now) : 'Waiting for first collection'}
-          </small>
-        </article>
-        <article className="health-metric">
-          <span>Worker uptime</span>
-          <strong>{workerUptime}</strong>
-          <small>
-            {status.worker
-              ? `Started ${new Date(status.worker.startedAt).toLocaleString()}`
-              : 'No heartbeat'}
-          </small>
-        </article>
-        <article className="health-metric">
-          <span>Consecutive failures</span>
-          <strong>{status.worker?.consecutiveFailures ?? '—'}</strong>
-          <small>{status.worker?.lastError || 'No active collection error'}</small>
-        </article>
-      </div>
-
-      <article className="panel event-timeline-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="panel-label">Operational history</p>
-            <h2>Collector events</h2>
-          </div>
-          <Badge
-            variant="light"
-            color={events.length ? 'orange' : 'teal'}
-          >
-            {events.length ? `${events.length} recent` : 'All clear'}
-          </Badge>
-        </div>
-        {events.length ? (
-          <ol className="event-timeline">
-            {events.map((event) => (
-              <li key={event.id}>
-                <span className={`event-marker ${eventTone(event.eventType)}`} />
-                <div>
-                  <strong>{eventLabel(event.eventType)}</strong>
-                  <p>{event.message || 'The collector recorded this operational event.'}</p>
-                </div>
-                <time dateTime={event.occurredAt}>
-                  {new Date(event.occurredAt).toLocaleString()}
-                </time>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <div className="health-empty-state">
-            <IconWifi size={28} />
-            <strong>No collector incidents recorded</strong>
-            <span>Failures, counter resets, and collection gaps will appear here.</span>
-          </div>
-        )}
-      </article>
-    </section>
-  )
-}
-
-function eventLabel(eventType: string) {
-  return eventType.replaceAll('_', ' ').replace(/^./, (character) => character.toUpperCase())
-}
-
-function eventTone(eventType: string) {
-  if (eventType.includes('fail') || eventType.includes('error')) return 'danger'
-  if (eventType.includes('reset') || eventType.includes('gap')) return 'warning'
-  return 'neutral'
-}
-
-function formatDuration(milliseconds: number) {
-  const totalMinutes = Math.floor(milliseconds / 60_000)
-  const days = Math.floor(totalMinutes / 1440)
-  const hours = Math.floor((totalMinutes % 1440) / 60)
-  const minutes = totalMinutes % 60
-  if (days) return `${days}d ${hours}h`
-  if (hours) return `${hours}h ${minutes}m`
-  return `${minutes}m`
-}
-
 function UsageInsights({ series }: { series: UsageSeries }) {
   const hasPoints = series.points.length > 0
   const changeLabel = series.previousTotalBytes
@@ -1184,6 +1082,23 @@ function UsageInsights({ series }: { series: UsageSeries }) {
         </strong>
       </div>
     </div>
+  )
+}
+
+function RouteSkeleton() {
+  return (
+    <section
+      className="loading-grid"
+      aria-label="Loading page"
+    >
+      {Array.from({ length: 4 }, (_, index) => (
+        <Skeleton
+          key={index}
+          height={150}
+          radius="lg"
+        />
+      ))}
+    </section>
   )
 }
 

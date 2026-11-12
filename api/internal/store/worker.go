@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 func (s *Store) UpdateWorkerStatus(ctx context.Context, status WorkerStatus) error {
@@ -89,9 +90,13 @@ func (s *Store) CompleteCollectionRequest(ctx context.Context, id int64, collect
 }
 
 func (s *Store) RecordCollectorEvent(ctx context.Context, eventType, detail string) error {
+	return s.RecordCollectorEventAt(ctx, eventType, detail, time.Now())
+}
+
+func (s *Store) RecordCollectorEventAt(ctx context.Context, eventType, detail string, occurredAt time.Time) error {
 	_, err := s.db.Exec(ctx, `
-		insert into collector_events (event_type,detail)
-		values ($1,jsonb_build_object('message',$2::text))`, eventType, detail)
+		insert into collector_events (occurred_at,event_type,detail)
+		values ($1,$2,jsonb_build_object('message',$3::text))`, occurredAt, eventType, detail)
 	if err != nil {
 		return fmt.Errorf("record collector event: %w", err)
 	}

@@ -18,6 +18,7 @@ type Collector struct {
 	source   string
 	interval time.Duration
 	status   store.WorkerStatus
+	loaded   bool
 }
 
 func New(logger *slog.Logger, repository *store.Store, adapter router.Adapter, source string, interval time.Duration) *Collector {
@@ -29,6 +30,7 @@ func New(logger *slog.Logger, repository *store.Store, adapter router.Adapter, s
 }
 
 func (c *Collector) Run(ctx context.Context) {
+	c.loadPreviousStatus(ctx)
 	c.runCollection(ctx)
 	next := time.NewTimer(c.interval)
 	requests := time.NewTicker(2 * time.Second)
@@ -67,6 +69,7 @@ func (c *Collector) Run(ctx context.Context) {
 }
 
 func (c *Collector) RunOnce(ctx context.Context) error {
+	c.loadPreviousStatus(ctx)
 	c.runDeviceControl(ctx)
 	err := c.collect(ctx)
 	c.recordResult(ctx, err)
@@ -113,9 +116,22 @@ func (c *Collector) runCollection(ctx context.Context) time.Duration {
 
 func (c *Collector) recordResult(ctx context.Context, collectionErr error) {
 	now := time.Now()
+	previousSuccess := c.status.LastSuccessAt
+	previousFailures := c.status.ConsecutiveFailures
 	c.status.HeartbeatAt = now
 	c.status.LastAttemptAt = &now
 	if collectionErr == nil {
+		if previousSuccess != nil {
+			gap := now.Sub(*previousSuccess)
+			if previousFailures > 0 {
+				c.recordRecovery(ctx, now, max(gap-c.interval, 0))
+			} else if gap > 2*c.interval {
+				interruptedAt := previousSuccess.Add(c.interval)
+				downtime := now.Sub(interruptedAt)
+				c.recordEventAt(ctx, "collection_interrupted", "No readings were collected for "+formatDuration(downtime)+". The worker or laptop may have been suspended.", interruptedAt)
+				c.recordRecovery(ctx, now, downtime)
+			}
+		}
 		c.status.LastSuccessAt = &now
 		c.status.LastError = ""
 		c.status.ConsecutiveFailures = 0
@@ -127,11 +143,62 @@ func (c *Collector) recordResult(ctx context.Context, collectionErr error) {
 			if err := c.store.RecordCollectorEvent(ctx, "collection_failed", collectionErr.Error()); err != nil {
 				c.logger.Error("store collector event", "error", err)
 			}
+			c.recordEventAt(ctx, "collection_interrupted", "Collection stopped after the router became unreachable.", now)
 		}
 	}
 	if err := c.store.UpdateWorkerStatus(ctx, c.status); err != nil {
 		c.logger.Error("store worker status", "error", err)
 	}
+}
+
+func (c *Collector) loadPreviousStatus(ctx context.Context) {
+	if c.loaded {
+		return
+	}
+	c.loaded = true
+	previous, err := c.store.GetWorkerStatus(ctx, c.source)
+	if err != nil {
+		c.logger.Error("load previous worker status", "error", err)
+		return
+	}
+	if previous == nil {
+		return
+	}
+	c.status.LastAttemptAt = previous.LastAttemptAt
+	c.status.LastSuccessAt = previous.LastSuccessAt
+	c.status.LastError = previous.LastError
+	c.status.ConsecutiveFailures = previous.ConsecutiveFailures
+}
+
+func (c *Collector) recordRecovery(ctx context.Context, recoveredAt time.Time, downtime time.Duration) {
+	c.recordEventAt(ctx, "collection_recovered", "Collection resumed after "+formatDuration(downtime)+" without a successful reading.", recoveredAt)
+}
+
+func (c *Collector) recordEventAt(ctx context.Context, eventType, message string, occurredAt time.Time) {
+	if err := c.store.RecordCollectorEventAt(ctx, eventType, message, occurredAt); err != nil {
+		c.logger.Error("store collector event", "eventType", eventType, "error", err)
+	}
+}
+
+func formatDuration(duration time.Duration) string {
+	if duration < 0 {
+		duration = 0
+	}
+	duration = duration.Round(time.Second)
+	if duration < time.Minute {
+		return duration.String()
+	}
+	minutes := int(duration / time.Minute)
+	days := minutes / (24 * 60)
+	hours := (minutes % (24 * 60)) / 60
+	remainingMinutes := minutes % 60
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm", days, hours, remainingMinutes)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm", hours, remainingMinutes)
+	}
+	return fmt.Sprintf("%dm", remainingMinutes)
 }
 
 func (c *Collector) collect(ctx context.Context) error {

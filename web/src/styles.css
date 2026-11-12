@@ -147,6 +147,7 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .event-marker { position: relative; z-index: 1; width: 12px; height: 12px; margin-top: 3px; border: 3px solid #fff; border-radius: 50%; background: #75808d; box-shadow: 0 0 0 2px #75808d; }
 .event-marker.warning { background: #d58b17; box-shadow: 0 0 0 2px #d58b17; }
 .event-marker.danger { background: #d84b3e; box-shadow: 0 0 0 2px #d84b3e; }
+.event-marker.success { background: #20a66a; box-shadow: 0 0 0 2px #20a66a; }
 .event-timeline strong { font-size: .86rem; }
 .event-timeline p { margin: 5px 0 0; color: #777b83; font-size: .78rem; line-height: 1.45; }
 .event-timeline time { color: #8a8e95; font-size: .72rem; white-space: nowrap; }
