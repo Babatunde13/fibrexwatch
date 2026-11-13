@@ -35,6 +35,7 @@ import {
   IconFileSearch,
   IconLogout,
   IconMoon,
+  IconDots,
   IconRefresh,
   IconReportAnalytics,
   IconSparkles,
@@ -231,6 +232,9 @@ const pageRoutes: Array<{
     description: 'Configure your data plan and local dashboard preferences.',
   },
 ]
+
+const mobilePrimaryPages: PageRoute[] = ['overview', 'analytics', 'devices', 'health']
+const mobileMorePages: PageRoute[] = ['insights', 'reports', 'alerts', 'inspector', 'settings']
 
 function routeFromPath(pathname: string): PageRoute {
   return pageRoutes.find((route) => route.path === pathname)?.page ?? 'overview'
@@ -645,7 +649,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           </div>
         </div>
         <nav
-          className="sidebar-nav"
+          className="sidebar-nav desktop-nav"
           aria-label="Dashboard sections"
         >
           {pageRoutes.map((route) => {
@@ -673,6 +677,73 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
               </a>
             )
           })}
+        </nav>
+        <nav
+          className="mobile-nav"
+          aria-label="Mobile dashboard sections"
+        >
+          {pageRoutes
+            .filter((route) => mobilePrimaryPages.includes(route.page))
+            .map((route) => {
+              const NavIcon = route.icon
+              return (
+                <a
+                  key={route.page}
+                  href={route.path}
+                  className={page === route.page ? 'active' : undefined}
+                  aria-current={page === route.page ? 'page' : undefined}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    navigate(route.page, route.path)
+                  }}
+                >
+                  <NavIcon size={20} /> <span>{route.label}</span>
+                </a>
+              )
+            })}
+          <Menu
+            position="top-end"
+            width={210}
+            shadow="md"
+          >
+            <Menu.Target>
+              <button
+                type="button"
+                className={mobileMorePages.includes(page) ? 'active' : undefined}
+                aria-label="More dashboard sections"
+              >
+                <IconDots size={20} /> <span>More</span>
+                {newReportCount > 0 && <span className="nav-notification">{newReportCount}</span>}
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>More sections</Menu.Label>
+              {pageRoutes
+                .filter((route) => mobileMorePages.includes(route.page))
+                .map((route) => {
+                  const NavIcon = route.icon
+                  return (
+                    <Menu.Item
+                      key={route.page}
+                      leftSection={<NavIcon size={17} />}
+                      rightSection={
+                        route.page === 'reports' && newReportCount > 0 ? (
+                          <Badge
+                            size="xs"
+                            color="teal"
+                          >
+                            {newReportCount}
+                          </Badge>
+                        ) : undefined
+                      }
+                      onClick={() => navigate(route.page, route.path)}
+                    >
+                      {route.label}
+                    </Menu.Item>
+                  )
+                })}
+            </Menu.Dropdown>
+          </Menu>
         </nav>
         <div className="sidebar-status">
           <span

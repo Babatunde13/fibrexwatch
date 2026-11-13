@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +11,40 @@ import (
 
 	"github.com/local/mtn-fibrex/api/internal/config"
 )
+
+func TestBackupRequiresAuthentication(t *testing.T) {
+	handler := New(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		nil,
+		nil,
+		config.Config{},
+	)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/export/backup", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
+	}
+	if response.Header().Get("Content-Disposition") != "" {
+		t.Fatal("unauthenticated response must not include a backup attachment")
+	}
+}
+
+func TestBackupDocumentMetadata(t *testing.T) {
+	location := time.FixedZone("Africa/Lagos", 60*60)
+	now := time.Date(2026, time.November, 12, 9, 8, 7, 0, location)
+	tables := map[string]json.RawMessage{"devices": json.RawMessage(`[]`)}
+	document := newBackupDocument(now, "huawei-web", tables)
+
+	if document.SchemaVersion != 1 || document.Source != "huawei-web" {
+		t.Fatalf("unexpected backup metadata: %+v", document)
+	}
+	if document.Timezone != "Africa/Lagos" || !document.GeneratedAt.Equal(now) {
+		t.Fatalf("unexpected backup time metadata: %+v", document)
+	}
+	if filename := backupFilename(now); filename != "fibrex-backup-2026-11-12-090807.json" {
+		t.Fatalf("filename = %q", filename)
+	}
+}
 
 func TestValidCSRF(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPatch, "/api/v1/devices/1", nil)

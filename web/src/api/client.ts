@@ -17,6 +17,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const get = <T>(path: string) => request<T>(path)
 
+export async function downloadFile(path: string) {
+  const response = await fetch(`${apiBase}${path}`, { credentials: 'include' })
+  if (response.status === 401) window.dispatchEvent(new Event('fibrexwatch-auth-required'))
+  if (!response.ok) throw new Error(`Download failed (${response.status})`)
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'download.json'
+  return { blob: await response.blob(), filename }
+}
+
 export const post = <T>(path: string) => request<T>(path, { method: 'POST' })
 
 export const postJSON = <T>(path: string, body: unknown) =>

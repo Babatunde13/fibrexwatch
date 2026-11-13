@@ -1,4 +1,4 @@
-import { apiBase, get, patch } from './client'
+import { apiBase, downloadFile, get, patch } from './client'
 import type {
   GeneratedReport,
   ReportSchedule,
@@ -40,4 +40,4 @@ export const getGeneratedReports = (limit = 24) =>
 export const generatedReportURL = (id: number, format: 'csv' | 'json') =>
   `${apiBase}/api/v1/reports/${id}?format=${format}`
 
-export const backupExportURL = () => `${apiBase}/api/v1/export/backup`
+export const downloadBackup = () => downloadFile('/api/v1/export/backup')

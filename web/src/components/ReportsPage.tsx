@@ -22,7 +22,7 @@ import {
   IconPrinter,
 } from '@tabler/icons-react'
 import {
-  backupExportURL,
+  downloadBackup,
   generatedReportURL,
   getGeneratedReports,
   getReportSchedule,
@@ -36,6 +36,29 @@ import { dateValue } from '../utils/dates'
 import { formatBytes } from '../utils/format'
 
 type ReportPeriod = 'week' | 'month' | 'previous-month' | 'custom'
+type BackupRecord = { downloadedAt: string; filename: string; size: number }
+type BackupReminderDays = 0 | 7 | 30 | 90
+
+const backupRecordKey = 'fibrexwatch:last-backup'
+const backupReminderKey = 'fibrexwatch:backup-reminder-days'
+
+function storedBackupRecord(): BackupRecord | null {
+  try {
+    const value = window.localStorage.getItem(backupRecordKey)
+    return value ? (JSON.parse(value) as BackupRecord) : null
+  } catch {
+    return null
+  }
+}
+
+function storedBackupReminder(): BackupReminderDays {
+  try {
+    const value = Number(window.localStorage.getItem(backupReminderKey))
+    return value === 7 || value === 30 || value === 90 ? value : 0
+  } catch {
+    return 0
+  }
+}
 
 export function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('week')
@@ -54,7 +77,18 @@ export function ReportsPage() {
   const [archives, setArchives] = useState<GeneratedReport[]>([])
   const [archivesLoading, setArchivesLoading] = useState(true)
   const [archivesError, setArchivesError] = useState('')
+  const [backupDownloading, setBackupDownloading] = useState(false)
+  const [backupError, setBackupError] = useState('')
+  const [lastBackup, setLastBackup] = useState<BackupRecord | null>(storedBackupRecord)
+  const [backupReminderDays, setBackupReminderDays] =
+    useState<BackupReminderDays>(storedBackupReminder)
+  const [backupCheckTime, setBackupCheckTime] = useState(() => Date.now())
   const range = useMemo(() => reportRange(period, customRange), [period, customRange])
+  const backupOverdue =
+    backupReminderDays > 0 &&
+    (!lastBackup ||
+      backupCheckTime - new Date(lastBackup.downloadedAt).getTime() >
+        backupReminderDays * 86_400_000)
 
   const applyCustomRange = () => {
     if (!customFrom || !customTo) {
@@ -138,6 +172,42 @@ export function ReportsPage() {
       setScheduleError(reason instanceof Error ? reason.message : 'Could not save schedule')
     } finally {
       setScheduleSaving(false)
+    }
+  }
+
+  const exportBackup = async () => {
+    setBackupDownloading(true)
+    setBackupError('')
+    try {
+      const { blob, filename } = await downloadBackup()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+      const record = { downloadedAt: new Date().toISOString(), filename, size: blob.size }
+      try {
+        window.localStorage.setItem(backupRecordKey, JSON.stringify(record))
+      } catch {
+        // The download still succeeded when browser storage is unavailable.
+      }
+      setLastBackup(record)
+      setBackupCheckTime(Date.now())
+    } catch (reason) {
+      setBackupError(reason instanceof Error ? reason.message : 'Could not download backup')
+    } finally {
+      setBackupDownloading(false)
+    }
+  }
+
+  const updateBackupReminder = (value: string | null) => {
+    const days = Number(value) as BackupReminderDays
+    setBackupReminderDays(days)
+    try {
+      window.localStorage.setItem(backupReminderKey, String(days))
+    } catch {
+      // The preference remains active for this browser session.
     }
   }
 
@@ -563,14 +633,55 @@ export function ReportsPage() {
             </p>
           </div>
         </div>
-        <Button
-          component="a"
-          href={backupExportURL()}
-          color="dark"
-          leftSection={<IconDatabaseExport size={17} />}
+        <div className="backup-actions">
+          <Select
+            label="Remind me"
+            aria-label="Backup reminder interval"
+            value={String(backupReminderDays)}
+            onChange={updateBackupReminder}
+            allowDeselect={false}
+            data={[
+              { value: '0', label: 'Never' },
+              { value: '7', label: 'Every 7 days' },
+              { value: '30', label: 'Every 30 days' },
+              { value: '90', label: 'Every 90 days' },
+            ]}
+          />
+          <Button
+            onClick={() => void exportBackup()}
+            loading={backupDownloading}
+            color="dark"
+            leftSection={<IconDatabaseExport size={17} />}
+          >
+            Download backup
+          </Button>
+        </div>
+        <div
+          className="backup-status"
+          aria-live="polite"
         >
-          Download backup
-        </Button>
+          {backupError && <span className="backup-error">{backupError}</span>}
+          {!backupError && lastBackup && (
+            <span>
+              Last exported {new Date(lastBackup.downloadedAt).toLocaleString()} ·{' '}
+              {formatBytes(lastBackup.size)} · {lastBackup.filename}
+            </span>
+          )}
+          {!backupError && !lastBackup && (
+            <span>No backup has been downloaded from this browser yet.</span>
+          )}
+        </div>
+        {backupOverdue && (
+          <Alert
+            color="orange"
+            title={lastBackup ? 'Backup reminder' : 'Create your first backup'}
+            icon={<IconAlertTriangle size={18} />}
+          >
+            {lastBackup
+              ? `Your last backup is older than ${backupReminderDays} days.`
+              : 'No backup has been downloaded from this browser.'}
+          </Alert>
+        )}
         <Alert
           color="yellow"
           title="Keep this file private"
