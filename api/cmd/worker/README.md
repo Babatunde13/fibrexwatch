@@ -23,7 +23,7 @@ docker compose up -d worker
 docker compose logs -f worker
 ```
 
-Important settings are `DATABASE_URL`, `ROUTER_ADAPTER`, `ROUTER_ADDRESS`, `ROUTER_USERNAME`, `ROUTER_PASSWORD`, `COLLECTION_INTERVAL`, and `RAW_RETENTION_DAYS`. See `docs/HUAWEI.md` for the Huawei-specific settings.
+Important settings are `DATABASE_URL`, `ROUTER_ADAPTER`, `ROUTER_ADDRESS`, `ROUTER_USERNAME`, `ROUTER_PASSWORD`, `COLLECTION_INTERVAL`, `NETWORK_QUALITY_INTERVAL`, and `RAW_RETENTION_DAYS`. Network-quality checks run every five minutes by default and use bounded TCP and DNS probes independently of router usage collection. See `docs/HUAWEI.md` for the Huawei-specific settings.
 
 The worker obtains a PostgreSQL advisory lock at startup. A second worker using the same database exits instead of producing duplicate readings. On startup it also removes raw records older than the configured retention period.
 

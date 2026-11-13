@@ -11,24 +11,25 @@ import (
 )
 
 type Config struct {
-	APIAddress         string
-	DatabaseURL        string
-	RedisURL           string
-	RouterAddress      string
-	RouterAdapter      string
-	RouterInsecureTLS  bool
-	RouterUsername     string
-	RouterPassword     string
-	RouterDiscovery    bool
-	RouterSSIDName     string
-	Router24GHzSSIDs   []string
-	Router5GHzSSIDs    []string
-	AllowedOrigins     string
-	CollectionInterval time.Duration
-	RawRetentionDays   int
-	Timezone           *time.Location
-	AuthSessionTTL     time.Duration
-	AuthCookieSecure   bool
+	APIAddress             string
+	DatabaseURL            string
+	RedisURL               string
+	RouterAddress          string
+	RouterAdapter          string
+	RouterInsecureTLS      bool
+	RouterUsername         string
+	RouterPassword         string
+	RouterDiscovery        bool
+	RouterSSIDName         string
+	Router24GHzSSIDs       []string
+	Router5GHzSSIDs        []string
+	AllowedOrigins         string
+	CollectionInterval     time.Duration
+	NetworkQualityInterval time.Duration
+	RawRetentionDays       int
+	Timezone               *time.Location
+	AuthSessionTTL         time.Duration
+	AuthCookieSecure       bool
 }
 
 func Load() (Config, error) {
@@ -38,6 +39,10 @@ func Load() (Config, error) {
 	interval, err := time.ParseDuration(envOrDefault("COLLECTION_INTERVAL", "60s"))
 	if err != nil || interval < 5*time.Second {
 		return Config{}, fmt.Errorf("COLLECTION_INTERVAL must be a duration of at least 5s")
+	}
+	qualityInterval, err := time.ParseDuration(envOrDefault("NETWORK_QUALITY_INTERVAL", "5m"))
+	if err != nil || qualityInterval < time.Minute {
+		return Config{}, fmt.Errorf("NETWORK_QUALITY_INTERVAL must be a duration of at least 1m")
 	}
 
 	timezone, err := time.LoadLocation(envOrDefault("APP_TIMEZONE", "Africa/Lagos"))
@@ -78,24 +83,25 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		APIAddress:         envOrDefault("API_ADDRESS", "127.0.0.1:8080"),
-		DatabaseURL:        envOrDefault("DATABASE_URL", "postgres://fibrex:fibrex@localhost:5433/fibrex?sslmode=disable"),
-		RedisURL:           envOrDefault("REDIS_URL", "redis://localhost:6379/0"),
-		RouterAddress:      os.Getenv("ROUTER_ADDRESS"),
-		RouterAdapter:      envOrDefault("ROUTER_ADAPTER", "none"),
-		RouterInsecureTLS:  insecureTLS,
-		RouterUsername:     username,
-		RouterPassword:     password,
-		RouterDiscovery:    discovery,
-		RouterSSIDName:     envOrDefault("ROUTER_SSID_NAME", "SSID-1"),
-		Router24GHzSSIDs:   envSliceOrDefault("ROUTER_24GHZ_SSIDS", "SSID-1,SSID1", ","),
-		Router5GHzSSIDs:    envSliceOrDefault("ROUTER_5GHZ_SSIDS", "SSID-5,SSID5", ","),
-		CollectionInterval: interval,
-		RawRetentionDays:   retentionDays,
-		Timezone:           timezone,
-		AllowedOrigins:     allowedOrigins,
-		AuthSessionTTL:     sessionTTL,
-		AuthCookieSecure:   cookieSecure,
+		APIAddress:             envOrDefault("API_ADDRESS", "127.0.0.1:8080"),
+		DatabaseURL:            envOrDefault("DATABASE_URL", "postgres://fibrex:fibrex@localhost:5433/fibrex?sslmode=disable"),
+		RedisURL:               envOrDefault("REDIS_URL", "redis://localhost:6379/0"),
+		RouterAddress:          os.Getenv("ROUTER_ADDRESS"),
+		RouterAdapter:          envOrDefault("ROUTER_ADAPTER", "none"),
+		RouterInsecureTLS:      insecureTLS,
+		RouterUsername:         username,
+		RouterPassword:         password,
+		RouterDiscovery:        discovery,
+		RouterSSIDName:         envOrDefault("ROUTER_SSID_NAME", "SSID-1"),
+		Router24GHzSSIDs:       envSliceOrDefault("ROUTER_24GHZ_SSIDS", "SSID-1,SSID1", ","),
+		Router5GHzSSIDs:        envSliceOrDefault("ROUTER_5GHZ_SSIDS", "SSID-5,SSID5", ","),
+		CollectionInterval:     interval,
+		NetworkQualityInterval: qualityInterval,
+		RawRetentionDays:       retentionDays,
+		Timezone:               timezone,
+		AllowedOrigins:         allowedOrigins,
+		AuthSessionTTL:         sessionTTL,
+		AuthCookieSecure:       cookieSecure,
 	}, nil
 }
 

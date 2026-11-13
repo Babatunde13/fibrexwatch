@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	"net"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/local/mtn-fibrex/api/internal/collector"
 	"github.com/local/mtn-fibrex/api/internal/config"
+	"github.com/local/mtn-fibrex/api/internal/networkquality"
 	"github.com/local/mtn-fibrex/api/internal/router"
 	"github.com/local/mtn-fibrex/api/internal/store"
 )
@@ -61,6 +64,7 @@ func main() {
 	logger.Info("ingestion worker started", "adapter", source, "interval", cfg.CollectionInterval)
 	ingestor := collector.New(logger, db, adapter, source, cfg.CollectionInterval, cfg.Timezone)
 	if *once {
+		recordNetworkQuality(ctx, logger, db, networkquality.New(gatewayTarget(cfg.RouterAddress)), source)
 		if err := ingestor.RunOnce(ctx); err != nil {
 			logger.Error("one-shot ingestion failed", "error", err)
 			os.Exit(1)
@@ -68,8 +72,48 @@ func main() {
 		logger.Info("one-shot ingestion completed")
 		return
 	}
+	go runNetworkQuality(ctx, logger, db, networkquality.New(gatewayTarget(cfg.RouterAddress)), source, cfg.NetworkQualityInterval)
 	ingestor.Run(ctx)
 	logger.Info("ingestion worker stopped")
+}
+
+func runNetworkQuality(ctx context.Context, logger *slog.Logger, repository *store.Store, prober *networkquality.Prober, source string, interval time.Duration) {
+	recordNetworkQuality(ctx, logger, repository, prober, source)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			recordNetworkQuality(ctx, logger, repository, prober, source)
+		}
+	}
+}
+
+func recordNetworkQuality(ctx context.Context, logger *slog.Logger, repository *store.Store, prober *networkquality.Prober, source string) {
+	probeContext, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	reading := prober.Probe(probeContext)
+	if err := repository.RecordNetworkQuality(ctx, source, reading); err != nil {
+		logger.Error("store network quality", "error", err)
+	}
+}
+
+func gatewayTarget(address string) string {
+	parsed, err := url.Parse(address)
+	if err != nil || parsed.Hostname() == "" {
+		return ""
+	}
+	port := parsed.Port()
+	if port == "" {
+		if parsed.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return net.JoinHostPort(parsed.Hostname(), port)
 }
 
 func configuredAdapter(ctx context.Context, logger *slog.Logger, cfg config.Config) (router.Adapter, string, error) {

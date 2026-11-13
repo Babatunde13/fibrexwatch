@@ -1,6 +1,8 @@
-import { Badge } from '@mantine/core'
-import { IconWifi } from '@tabler/icons-react'
-import type { CollectorEvent, SystemStatus } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Badge, Loader } from '@mantine/core'
+import { IconAlertTriangle, IconWorld, IconWifi } from '@tabler/icons-react'
+import { getNetworkQuality } from '../api'
+import type { CollectorEvent, NetworkQualityHistory, SystemStatus } from '../types'
 
 export function NetworkHealthPage({
   status,
@@ -11,6 +13,9 @@ export function NetworkHealthPage({
   events: CollectorEvent[]
   now: number
 }) {
+  const [quality, setQuality] = useState<NetworkQualityHistory | null>(null)
+  const [qualityLoading, setQualityLoading] = useState(true)
+  const [qualityError, setQualityError] = useState('')
   const lastReading = status.lastCollectedAt ? new Date(status.lastCollectedAt) : null
   const readingAge = lastReading ? Math.max(0, now - lastReading.getTime()) : null
   const expectedInterval = status.collectionIntervalSeconds * 1000
@@ -19,6 +24,35 @@ export function NetworkHealthPage({
   const workerUptime = status.worker
     ? formatDuration(Math.max(0, now - new Date(status.worker.startedAt).getTime()))
     : 'Unavailable'
+  const qualitySummary = useMemo(() => summarizeQuality(quality), [quality])
+
+  useEffect(() => {
+    let active = true
+    const load = () => {
+      void getNetworkQuality()
+        .then((result) => {
+          if (!active) return
+          setQuality(result)
+          setQualityError('')
+        })
+        .catch((error: unknown) => {
+          if (active) {
+            setQualityError(
+              error instanceof Error ? error.message : 'Could not load network quality',
+            )
+          }
+        })
+        .finally(() => {
+          if (active) setQualityLoading(false)
+        })
+    }
+    load()
+    const timer = window.setInterval(load, 60_000)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [])
 
   return (
     <section
@@ -53,6 +87,102 @@ export function NetworkHealthPage({
           <small>{status.worker?.lastError || 'No active collection error'}</small>
         </article>
       </div>
+
+      <article className="panel quality-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-label">Connection checks</p>
+            <h2>Network quality</h2>
+            <p>Bounded TCP and DNS probes distinguish router, internet, and resolver failures.</p>
+          </div>
+          {qualitySummary && (
+            <Badge
+              variant="light"
+              color={qualitySummary.internetAvailability >= 99 ? 'teal' : 'orange'}
+            >
+              {qualitySummary.internetAvailability}% internet availability
+            </Badge>
+          )}
+        </div>
+        {qualityLoading && !quality && (
+          <div className="quality-loading">
+            <Loader size="sm" /> Loading quality measurements…
+          </div>
+        )}
+        {qualityError && !quality && (
+          <Alert
+            color="red"
+            title="Network quality unavailable"
+            icon={<IconAlertTriangle size={18} />}
+          >
+            {qualityError}
+          </Alert>
+        )}
+        {!qualityLoading && !qualityError && !qualitySummary && (
+          <div className="health-empty-state">
+            <IconWorld size={28} />
+            <strong>Waiting for the first quality check</strong>
+            <span>
+              The worker records a measurement when it starts and at the configured interval.
+            </span>
+          </div>
+        )}
+        {qualitySummary && (
+          <>
+            {qualityError && (
+              <Alert
+                color="orange"
+                title="Showing the last available measurements"
+              >
+                {qualityError}
+              </Alert>
+            )}
+            <div className="quality-metrics">
+              <QualityMetric
+                label="Gateway"
+                reachable={qualitySummary.latest.gatewayReachable}
+                latency={qualitySummary.latest.gatewayLatencyMs}
+                detail={`${qualitySummary.latest.gatewayLossPercent}% sample loss`}
+              />
+              <QualityMetric
+                label="Internet"
+                reachable={qualitySummary.latest.internetReachable}
+                latency={qualitySummary.latest.internetLatencyMs}
+                detail={`${qualitySummary.latest.internetLossPercent}% sample loss`}
+              />
+              <QualityMetric
+                label="DNS"
+                reachable={qualitySummary.latest.dnsReachable}
+                latency={qualitySummary.latest.dnsLatencyMs}
+                detail="System resolver"
+              />
+            </div>
+            <div className="quality-history-wrap">
+              <table className="quality-history">
+                <caption>Most recent network-quality checks</caption>
+                <thead>
+                  <tr>
+                    <th>Checked</th>
+                    <th>Gateway</th>
+                    <th>Internet</th>
+                    <th>DNS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qualitySummary.recent.map((reading) => (
+                    <tr key={reading.id}>
+                      <td>{new Date(reading.recordedAt).toLocaleTimeString()}</td>
+                      <td>{qualityValue(reading.gatewayReachable, reading.gatewayLatencyMs)}</td>
+                      <td>{qualityValue(reading.internetReachable, reading.internetLatencyMs)}</td>
+                      <td>{qualityValue(reading.dnsReachable, reading.dnsLatencyMs)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </article>
 
       <article className="panel event-timeline-panel">
         <div className="panel-heading">
@@ -92,6 +222,42 @@ export function NetworkHealthPage({
       </article>
     </section>
   )
+}
+
+function QualityMetric({
+  label,
+  reachable,
+  latency,
+  detail,
+}: {
+  label: string
+  reachable: boolean
+  latency: number | null
+  detail: string
+}) {
+  return (
+    <article>
+      <span>{label}</span>
+      <strong>{reachable && latency !== null ? `${latency} ms` : 'Unavailable'}</strong>
+      <small>{reachable ? detail : 'Probe failed'}</small>
+    </article>
+  )
+}
+
+function summarizeQuality(history: NetworkQualityHistory | null) {
+  const readings = history?.readings ?? []
+  if (!readings.length) return null
+  const latest = readings.at(-1)!
+  const internetSuccesses = readings.filter((reading) => reading.internetReachable).length
+  return {
+    latest,
+    internetAvailability: Math.round((internetSuccesses / readings.length) * 1000) / 10,
+    recent: readings.slice(-12).reverse(),
+  }
+}
+
+function qualityValue(reachable: boolean, latency: number | null) {
+  return reachable && latency !== null ? `${latency} ms` : 'Failed'
 }
 
 function eventLabel(eventType: string) {

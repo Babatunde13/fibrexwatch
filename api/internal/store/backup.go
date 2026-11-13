@@ -23,6 +23,7 @@ func backupQueries(source string) []backupQuery {
 		{"dataPlanSettings", `select coalesce(jsonb_agg(to_jsonb(export_row)),'[]'::jsonb) from (select allowance_bytes,billing_day,alert_thresholds,updated_at from data_plan_settings where id=1) export_row`, nil},
 		{"reportScheduleSettings", `select coalesce(jsonb_agg(to_jsonb(export_row)),'[]'::jsonb) from (select frequency,weekday,month_day,updated_at from report_schedule_settings where id=1) export_row`, nil},
 		{"generatedReports", `select coalesce(jsonb_agg(to_jsonb(export_row) order by period_end),'[]'::jsonb) from (select id,source,frequency,period_start,period_end,download_bytes,upload_bytes,reading_count,report_data,generated_at from generated_reports where source=$1) export_row`, []any{source}},
+		{"networkQualityReadings", `select coalesce(jsonb_agg(to_jsonb(export_row) order by recorded_at),'[]'::jsonb) from (select id,source,recorded_at,gateway_reachable,gateway_latency_ms,gateway_loss_percent,internet_reachable,internet_latency_ms,internet_loss_percent,dns_reachable,dns_latency_ms from network_quality_readings where source=$1) export_row`, []any{source}},
 	}
 }
 

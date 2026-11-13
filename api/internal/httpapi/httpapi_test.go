@@ -104,3 +104,14 @@ func TestParseDateRangeRejectsReverseRange(t *testing.T) {
 		t.Fatal("expected reverse range error")
 	}
 }
+
+func TestNetworkQualityRejectsInvalidWindow(t *testing.T) {
+	for _, hours := range []string{"0", "169", "invalid"} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/network-quality?hours="+hours, nil)
+		(&api{}).networkQuality(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("hours=%q status = %d, want %d", hours, response.Code, http.StatusBadRequest)
+		}
+	}
+}

@@ -87,5 +87,10 @@ func (s *Store) PruneRawData(ctx context.Context, before time.Time) error {
 		where recorded_at<$1`, before); err != nil {
 		return fmt.Errorf("prune router readings: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `
+		delete from network_quality_readings
+		where recorded_at<$1`, before); err != nil {
+		return fmt.Errorf("prune network quality readings: %w", err)
+	}
 	return tx.Commit(ctx)
 }

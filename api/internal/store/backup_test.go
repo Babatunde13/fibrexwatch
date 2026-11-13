@@ -11,6 +11,7 @@ func TestBackupQueriesUseExplicitSafeAllowlist(t *testing.T) {
 		"routerReadings", "usageIntervals", "devices", "deviceAddresses",
 		"deviceReadings", "collectorEvents", "dataPlanSettings",
 		"reportScheduleSettings", "generatedReports",
+		"networkQualityReadings",
 	}
 	queries := backupQueries("router-source")
 	got := make([]string, 0, len(queries))

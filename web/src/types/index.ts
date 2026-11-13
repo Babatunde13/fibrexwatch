@@ -42,6 +42,24 @@ export type CollectorEvent = {
   message: string
 }
 
+export type NetworkQualityReading = {
+  id: number
+  recordedAt: string
+  gatewayReachable: boolean
+  gatewayLatencyMs: number | null
+  gatewayLossPercent: number
+  internetReachable: boolean
+  internetLatencyMs: number | null
+  internetLossPercent: number
+  dnsReachable: boolean
+  dnsLatencyMs: number | null
+}
+
+export type NetworkQualityHistory = {
+  hours: number
+  readings: NetworkQualityReading[]
+}
+
 export type DailyUsage = {
   date: string
   downloadBytes: number

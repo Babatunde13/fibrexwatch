@@ -71,3 +71,22 @@ func (a *api) collectorEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]any{"events": events})
 }
+
+func (a *api) networkQuality(w http.ResponseWriter, r *http.Request) {
+	hours := 24
+	if raw := r.URL.Query().Get("hours"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 168 {
+			writeJSON(w, 400, map[string]string{"error": "hours must be between 1 and 168"})
+			return
+		}
+		hours = parsed
+	}
+	readings, err := a.store.NetworkQualityHistory(r.Context(), a.cfg.RouterAdapter, time.Now().Add(-time.Duration(hours)*time.Hour))
+	if err != nil {
+		a.logger.Error("load network quality", "error", err)
+		writeJSON(w, 500, map[string]string{"error": "load network quality"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"hours": hours, "readings": readings})
+}

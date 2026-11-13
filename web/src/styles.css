@@ -157,6 +157,16 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .health-empty-state { display: grid; min-height: 190px; place-items: center; align-content: center; gap: 8px; color: #7d828b; text-align: center; }
 .health-empty-state strong { color: inherit; }
 .health-empty-state span { font-size: .8rem; }
+.quality-panel { margin-bottom: 18px; }
+.quality-loading { display: flex; min-height: 120px; align-items: center; gap: 10px; color: #777b83; }
+.quality-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.quality-metrics article { display: grid; gap: 5px; padding: 14px; border: 1px solid #e4e7eb; border-radius: 12px; background: #f8f9fa; }
+.quality-metrics span, .quality-metrics small { color: #777b83; font-size: .72rem; }
+.quality-metrics strong { font-size: 1.15rem; }
+.quality-history-wrap { overflow-x: auto; }
+.quality-history { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.quality-history caption { padding: 0 0 8px; color: #777b83; text-align: left; }
+.quality-history th, .quality-history td { padding: 9px 10px; border-bottom: 1px solid #e4e7eb; text-align: left; white-space: nowrap; }
 .insights-page { display: grid; gap: 14px; }
 .insights-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 26px; border: 1px solid #e1e4e8; border-radius: 16px; background: linear-gradient(135deg, #fff, #fffcf0); box-shadow: 0 7px 24px rgba(20,24,32,.035); }
 .insights-summary strong, .insights-summary span { display: block; }
@@ -369,6 +379,7 @@ dd { margin: 0; font-weight: 700; text-align: right; }
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .grid { grid-template-columns: 1fr; }
   .health-metrics { grid-template-columns: repeat(2, 1fr); }
+  .quality-metrics { grid-template-columns: 1fr; }
   .insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inspector-summary-grid { grid-template-columns: repeat(2, 1fr); }
   .panel-heading, .date-filter { align-items: stretch; flex-direction: column; }
@@ -495,6 +506,8 @@ dd { margin: 0; font-weight: 700; text-align: right; }
 :root[data-theme="dark"] .device-analytics-grid > div { border-color: #454138; background: #2b2922; }
 :root[data-theme="dark"] .band-badge { background: #403d35; color: #d3cec3; }
 :root[data-theme="dark"] .filter-group, :root[data-theme="dark"] .device-card { border-color: #454138; background: #2b2922; }
+:root[data-theme="dark"] .quality-metrics article { border-color: #454138; background: #2b2922; }
+:root[data-theme="dark"] .quality-history th, :root[data-theme="dark"] .quality-history td { border-color: #454138; }
 :root[data-theme="dark"] .device-card .row-actions { border-color: #454138; }
 :root[data-theme="dark"] .device-card button { border-color: #575248; background: #302e27; }
 :root[data-theme="dark"] .usage-insights > div { border-color: #454138; background: #2b2922; }
