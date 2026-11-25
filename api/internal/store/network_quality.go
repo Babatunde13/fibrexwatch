@@ -32,6 +32,21 @@ func (s *Store) RecordNetworkQuality(ctx context.Context, source string, reading
 	return err
 }
 
+func (s *Store) LatestNetworkQuality(ctx context.Context, source string) (*networkquality.Reading, error) {
+	var reading networkquality.Reading
+	err := s.db.QueryRow(ctx, `
+		select recorded_at,gateway_reachable,gateway_latency_ms,gateway_loss_percent,
+			internet_reachable,internet_latency_ms,internet_loss_percent,dns_reachable,dns_latency_ms
+		from network_quality_readings where source=$1 order by recorded_at desc limit 1`, source,
+	).Scan(&reading.RecordedAt, &reading.GatewayReachable, &reading.GatewayLatencyMS,
+		&reading.GatewayLossPercent, &reading.InternetReachable, &reading.InternetLatencyMS,
+		&reading.InternetLossPercent, &reading.DNSReachable, &reading.DNSLatencyMS)
+	if isNoRows(err) {
+		return nil, nil
+	}
+	return &reading, err
+}
+
 func (s *Store) NetworkQualityHistory(ctx context.Context, source string, since time.Time) ([]NetworkQualityReading, error) {
 	rows, err := s.db.Query(ctx, `
 		select id,recorded_at,gateway_reachable,gateway_latency_ms,gateway_loss_percent,

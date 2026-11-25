@@ -269,8 +269,19 @@ function eventLabel(eventType: string) {
 
 function eventTone(eventType: string) {
   if (eventType.includes('recover')) return 'success'
-  if (eventType.includes('fail') || eventType.includes('error')) return 'danger'
-  if (eventType.includes('reset') || eventType.includes('gap')) return 'warning'
+  if (
+    eventType.includes('fail') ||
+    eventType.includes('error') ||
+    eventType.includes('unreachable')
+  )
+    return 'danger'
+  if (
+    eventType.includes('reset') ||
+    eventType.includes('gap') ||
+    eventType.includes('latency') ||
+    eventType.includes('packet_loss')
+  )
+    return 'warning'
   return 'neutral'
 }
 

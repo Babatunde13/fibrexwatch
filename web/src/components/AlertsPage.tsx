@@ -370,8 +370,19 @@ function eventLabel(eventType: string) {
 
 function eventSeverity(eventType: string): AlertSeverity {
   if (eventType.includes('recover')) return 'resolved'
-  if (eventType.includes('fail') || eventType.includes('error')) return 'critical'
-  if (eventType.includes('interrupt') || eventType.includes('gap') || eventType.includes('reset')) {
+  if (
+    eventType.includes('fail') ||
+    eventType.includes('error') ||
+    eventType.includes('unreachable')
+  )
+    return 'critical'
+  if (
+    eventType.includes('interrupt') ||
+    eventType.includes('gap') ||
+    eventType.includes('reset') ||
+    eventType.includes('latency') ||
+    eventType.includes('packet_loss')
+  ) {
     return 'warning'
   }
   return 'info'

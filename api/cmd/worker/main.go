@@ -94,9 +94,22 @@ func runNetworkQuality(ctx context.Context, logger *slog.Logger, repository *sto
 func recordNetworkQuality(ctx context.Context, logger *slog.Logger, repository *store.Store, prober *networkquality.Prober, source string) {
 	probeContext, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
+	previous, err := repository.LatestNetworkQuality(ctx, source)
+	if err != nil {
+		logger.Error("load previous network quality", "error", err)
+	}
 	reading := prober.Probe(probeContext)
 	if err := repository.RecordNetworkQuality(ctx, source, reading); err != nil {
 		logger.Error("store network quality", "error", err)
+		return
+	}
+	if err != nil {
+		return
+	}
+	for _, event := range networkquality.Evaluate(previous, reading) {
+		if err := repository.RecordCollectorEvent(ctx, event.Type, event.Message); err != nil {
+			logger.Error("store network quality event", "eventType", event.Type, "error", err)
+		}
 	}
 }
 
