@@ -25,6 +25,8 @@ const (
 	loginWindow       = 15 * time.Minute
 )
 
+type authContextKey struct{}
+
 type authenticator struct {
 	store  *store.Store
 	redis  *redis.Client
@@ -130,7 +132,7 @@ func (a *authenticator) session(w http.ResponseWriter, r *http.Request) {
 
 func (a *authenticator) require(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, authenticated, err := a.sessionUser(r.Context(), r)
+		username, authenticated, err := a.sessionUser(r.Context(), r)
 		if err != nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "authentication service unavailable"})
 			return
@@ -143,8 +145,13 @@ func (a *authenticator) require(next http.Handler) http.Handler {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "invalid CSRF token"})
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authContextKey{}, username)))
 	})
+}
+
+func authenticatedUsername(r *http.Request) string {
+	username, _ := r.Context().Value(authContextKey{}).(string)
+	return username
 }
 
 func (a *authenticator) sessionUser(ctx context.Context, r *http.Request) (string, bool, error) {

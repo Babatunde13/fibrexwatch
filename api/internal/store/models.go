@@ -39,6 +39,22 @@ type CollectorEvent struct {
 	EventType  string    `json:"eventType"`
 	Message    string    `json:"message"`
 }
+type MaintenanceWindow struct {
+	ID              int64      `json:"id"`
+	Source          string     `json:"source"`
+	Kind            string     `json:"kind"`
+	Label           string     `json:"label"`
+	StartsAt        *time.Time `json:"startsAt"`
+	EndsAt          *time.Time `json:"endsAt"`
+	Weekdays        []int16    `json:"weekdays"`
+	StartMinute     *int16     `json:"startMinute"`
+	DurationMinutes *int16     `json:"durationMinutes"`
+	Timezone        string     `json:"timezone"`
+	CreatedBy       string     `json:"createdBy"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	CancelledBy     string     `json:"cancelledBy"`
+	CancelledAt     *time.Time `json:"cancelledAt"`
+}
 type RouterScan struct {
 	ID          int64           `json:"id"`
 	Source      string          `json:"source"`

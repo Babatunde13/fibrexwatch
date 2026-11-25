@@ -167,6 +167,20 @@ h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
 .quality-history { width: 100%; border-collapse: collapse; font-size: .78rem; }
 .quality-history caption { padding: 0 0 8px; color: #777b83; text-align: left; }
 .quality-history th, .quality-history td { padding: 9px 10px; border-bottom: 1px solid #e4e7eb; text-align: left; white-space: nowrap; }
+.maintenance-panel { margin-bottom: 18px; }
+.maintenance-quick-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.maintenance-quick-actions > span { color: #777b83; font-size: .78rem; font-weight: 700; }
+.maintenance-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 12px; padding: 16px; border: 1px solid #e4e7eb; border-radius: 12px; background: #f8f9fa; }
+.maintenance-history { margin-top: 20px; }
+.maintenance-history h3 { margin: 0 0 8px; font-size: .9rem; }
+.maintenance-history > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid #e4e7eb; }
+.maintenance-history > div > div { display: grid; gap: 3px; }
+.maintenance-history span { color: #777b83; font-size: .72rem; }
+.maintenance-history .cancelled { opacity: .62; }
+.maintenance-alert-note { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #f1c27d; border-radius: 10px; background: #fff4e6; color: #8a4b08; font-size: .82rem; }
+.notification-preferences { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 14px 16px; border: 1px solid #e4e7eb; border-radius: 12px; background: #f8f9fa; }
+.notification-preferences > div:first-child { display: grid; min-width: 220px; flex: 1; gap: 2px; }
+.notification-preferences > div:first-child span { color: #777b83; font-size: .72rem; }
 .insights-page { display: grid; gap: 14px; }
 .insights-summary { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 26px; border: 1px solid #e1e4e8; border-radius: 16px; background: linear-gradient(135deg, #fff, #fffcf0); box-shadow: 0 7px 24px rgba(20,24,32,.035); }
 .insights-summary strong, .insights-summary span { display: block; }
@@ -380,6 +394,7 @@ dd { margin: 0; font-weight: 700; text-align: right; }
   .grid { grid-template-columns: 1fr; }
   .health-metrics { grid-template-columns: repeat(2, 1fr); }
   .quality-metrics { grid-template-columns: 1fr; }
+  .maintenance-form { grid-template-columns: 1fr 1fr; }
   .insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inspector-summary-grid { grid-template-columns: repeat(2, 1fr); }
   .panel-heading, .date-filter { align-items: stretch; flex-direction: column; }
@@ -409,6 +424,7 @@ dd { margin: 0; font-weight: 700; text-align: right; }
 @media (max-width: 480px) {
   .metrics { grid-template-columns: 1fr; }
   .health-metrics { grid-template-columns: 1fr; }
+  .maintenance-form { grid-template-columns: 1fr; }
   .insights-summary { align-items: flex-start; flex-direction: column; }
   .insights-grid { grid-template-columns: 1fr; }
   .alerts-summary { align-items: flex-start; flex-wrap: wrap; }
@@ -508,6 +524,10 @@ dd { margin: 0; font-weight: 700; text-align: right; }
 :root[data-theme="dark"] .filter-group, :root[data-theme="dark"] .device-card { border-color: #454138; background: #2b2922; }
 :root[data-theme="dark"] .quality-metrics article { border-color: #454138; background: #2b2922; }
 :root[data-theme="dark"] .quality-history th, :root[data-theme="dark"] .quality-history td { border-color: #454138; }
+:root[data-theme="dark"] .maintenance-form { border-color: #454138; background: #2b2922; }
+:root[data-theme="dark"] .maintenance-history > div { border-color: #454138; }
+:root[data-theme="dark"] .maintenance-alert-note { border-color: #754d20; background: #3b2b17; color: #ffd8a8; }
+:root[data-theme="dark"] .notification-preferences { border-color: #454138; background: #2b2922; }
 :root[data-theme="dark"] .device-card .row-actions { border-color: #454138; }
 :root[data-theme="dark"] .device-card button { border-color: #575248; background: #302e27; }
 :root[data-theme="dark"] .usage-insights > div { border-color: #454138; background: #2b2922; }

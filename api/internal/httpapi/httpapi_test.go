@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -113,5 +115,27 @@ func TestNetworkQualityRejectsInvalidWindow(t *testing.T) {
 		if response.Code != http.StatusBadRequest {
 			t.Errorf("hours=%q status = %d, want %d", hours, response.Code, http.StatusBadRequest)
 		}
+	}
+}
+
+func TestAlertStateRejectsInvalidKeys(t *testing.T) {
+	for _, body := range [][]byte{
+		[]byte(`{"alertKeys":[],"read":true}`),
+		[]byte(`{"alertKeys":[""],"read":true}`),
+	} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPatch, "/api/v1/alerts/read", bytes.NewReader(body))
+		(&api{}).setAlertsRead(response, request)
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+		}
+	}
+}
+
+func TestAuthenticatedUsernameFromContext(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request = request.WithContext(context.WithValue(request.Context(), authContextKey{}, "admin"))
+	if username := authenticatedUsername(request); username != "admin" {
+		t.Fatalf("username = %q, want admin", username)
 	}
 }

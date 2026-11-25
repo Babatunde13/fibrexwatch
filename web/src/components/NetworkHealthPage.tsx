@@ -3,6 +3,7 @@ import { Alert, Badge, Loader } from '@mantine/core'
 import { IconAlertTriangle, IconWorld, IconWifi } from '@tabler/icons-react'
 import { getNetworkQuality } from '../api'
 import type { CollectorEvent, NetworkQualityHistory, SystemStatus } from '../types'
+import { MaintenancePanel } from './MaintenancePanel'
 
 export function NetworkHealthPage({
   status,
@@ -183,6 +184,8 @@ export function NetworkHealthPage({
           </>
         )}
       </article>
+
+      <MaintenancePanel />
 
       <article className="panel event-timeline-panel">
         <div className="panel-heading">

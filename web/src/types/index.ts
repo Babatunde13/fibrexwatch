@@ -23,6 +23,7 @@ export type SystemStatus = {
   lastCollectedAt: string | null
   collectionIntervalSeconds: number
   timezone: string
+  maintenance: MaintenanceWindow | null
   worker: {
     source: string
     instanceId: string
@@ -33,6 +34,41 @@ export type SystemStatus = {
     lastError: string
     consecutiveFailures: number
   } | null
+}
+
+export type MaintenanceWindow = {
+  id: number
+  source: string
+  kind: 'one-off' | 'weekly'
+  label: string
+  startsAt: string | null
+  endsAt: string | null
+  weekdays: number[]
+  startMinute: number | null
+  durationMinutes: number | null
+  timezone: string
+  createdBy: string
+  createdAt: string
+  cancelledBy: string
+  cancelledAt: string | null
+}
+
+export type MaintenanceState = {
+  active: MaintenanceWindow | null
+  windows: MaintenanceWindow[]
+}
+
+export type NotificationPreferences = {
+  collectorEnabled: boolean
+  dataPlanEnabled: boolean
+  deviceEnabled: boolean
+  reportEnabled: boolean
+  updatedAt: string
+}
+
+export type AlertState = {
+  readIds: string[]
+  preferences: NotificationPreferences
 }
 
 export type CollectorEvent = {

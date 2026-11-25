@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/local/mtn-fibrex/api/internal/store"
 )
 
 func (a *api) routerCapabilities(w http.ResponseWriter, _ *http.Request) {
@@ -24,6 +26,13 @@ func (a *api) status(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": "load worker status"})
 		return
 	}
+	maintenanceWindows, err := a.store.ListMaintenanceWindows(r.Context(), a.cfg.RouterAdapter, 50)
+	if err != nil {
+		a.logger.Error("load maintenance status", "error", err)
+		writeJSON(w, 500, map[string]string{"error": "load maintenance status"})
+		return
+	}
+	activeMaintenance := store.ActiveMaintenance(maintenanceWindows, time.Now())
 	state := "not-configured"
 	workerOfflineAfter := max(2*a.cfg.CollectionInterval, 2*time.Minute)
 	if configured && (worker == nil || time.Since(worker.HeartbeatAt) > workerOfflineAfter) {
@@ -37,7 +46,7 @@ func (a *api) status(w http.ResponseWriter, r *http.Request) {
 	} else if configured {
 		state = "stale"
 	}
-	writeJSON(w, 200, map[string]any{"routerConfigured": configured, "routerAddress": a.cfg.RouterAddress, "routerAdapter": a.cfg.RouterAdapter, "collectorState": state, "lastCollectedAt": latest, "collectionIntervalSeconds": int(a.cfg.CollectionInterval.Seconds()), "timezone": a.cfg.Timezone.String(), "worker": worker})
+	writeJSON(w, 200, map[string]any{"routerConfigured": configured, "routerAddress": a.cfg.RouterAddress, "routerAdapter": a.cfg.RouterAdapter, "collectorState": state, "lastCollectedAt": latest, "collectionIntervalSeconds": int(a.cfg.CollectionInterval.Seconds()), "timezone": a.cfg.Timezone.String(), "worker": worker, "maintenance": activeMaintenance})
 }
 func (a *api) collectNow(w http.ResponseWriter, r *http.Request) {
 	if a.cfg.RouterAdapter == "none" {

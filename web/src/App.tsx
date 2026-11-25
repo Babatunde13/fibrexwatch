@@ -51,6 +51,7 @@ import {
   blockDevice,
   deleteDevice,
   getDailyUsage,
+  getAlertState,
   getGeneratedReports,
   getCollectorEvents,
   getDevice,
@@ -75,6 +76,7 @@ import type {
   CollectorEvent,
   Device,
   PlanUsage,
+  NotificationPreferences,
   RouterCapabilities,
   SystemStatus,
   UsageHistory,
@@ -150,6 +152,14 @@ type PageRoute =
   | 'inspector'
   | 'health'
   | 'settings'
+
+const defaultNotificationPreferences: NotificationPreferences = {
+  collectorEnabled: true,
+  dataPlanEnabled: true,
+  deviceEnabled: true,
+  reportEnabled: true,
+  updatedAt: '',
+}
 
 const pageRoutes: Array<{
   page: PageRoute
@@ -262,6 +272,9 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
   const [collectorEvents, setCollectorEvents] = useState<CollectorEvent[]>([])
   const [collectorEventsLoaded, setCollectorEventsLoaded] = useState(false)
   const [collectorEventsError, setCollectorEventsError] = useState('')
+  const [notificationPreferences, setNotificationPreferences] = useState(
+    defaultNotificationPreferences,
+  )
   const [newDeviceCount, setNewDeviceCount] = useState(0)
   const [newReportCount, setNewReportCount] = useState(0)
   const [latestReportID, setLatestReportID] = useState(0)
@@ -316,14 +329,16 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       getDevices(true),
       getDataPlan(),
       getPlanUsage(),
+      getAlertState().catch(() => ({ readIds: [], preferences: defaultNotificationPreferences })),
     ])
-      .then(([usage, month, status, deviceResult, plan, planState]) => {
+      .then(([usage, month, status, deviceResult, plan, planState, alertState]) => {
         setDevices(deviceResult.devices)
         setNewDeviceCount(
           recentDeviceCount(deviceResult.devices.filter((device) => !device.archivedAt)),
         )
         setDataPlan(plan)
         setPlanUsage(planState)
+        setNotificationPreferences(alertState.preferences)
         setAllowanceGB(plan.allowanceBytes ? (plan.allowanceBytes / 1024 ** 3).toString() : '')
         setBillingDay(plan.billingDay.toString())
         setState({
@@ -372,7 +387,12 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
     const known = new Set<number>(JSON.parse(localStorage.getItem(storageKey) ?? '[]') as number[])
     const activeDevices = devices.filter((device) => !device.archivedAt)
     const newlySeen = activeDevices.filter((device) => !known.has(device.id))
-    if (known.size && newlySeen.length && Notification.permission === 'granted') {
+    if (
+      notificationPreferences.deviceEnabled &&
+      known.size &&
+      newlySeen.length &&
+      Notification.permission === 'granted'
+    ) {
       new Notification('New device on FibreXWatch', {
         body: newlySeen
           .map((device) => device.displayName || device.hostname || device.macAddress)
@@ -380,7 +400,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       })
     }
     localStorage.setItem(storageKey, JSON.stringify(activeDevices.map((device) => device.id)))
-  }, [devices])
+  }, [devices, notificationPreferences.deviceEnabled])
 
   useEffect(() => {
     let active = true
@@ -412,7 +432,8 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
           isNew &&
           latest.id > lastNotified &&
           typeof Notification !== 'undefined' &&
-          Notification.permission === 'granted'
+          Notification.permission === 'granted' &&
+          notificationPreferences.reportEnabled
         ) {
           new Notification('Your FibreXWatch report is ready', {
             body: `${latest.frequency === 'weekly' ? 'Weekly' : 'Monthly'} usage for ${latest.periodStart} to ${latest.periodEnd}.`,
@@ -430,7 +451,7 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
       window.clearTimeout(initial)
       window.clearInterval(timer)
     }
-  }, [])
+  }, [notificationPreferences.reportEnabled])
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -873,6 +894,17 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
 
         {state.kind === 'ready' && (
           <>
+            {state.status.maintenance && (
+              <Alert
+                className="dashboard-alert"
+                color="orange"
+                title="Maintenance mode active"
+                icon={<IconCalendarStats size={18} />}
+              >
+                {state.status.maintenance.label}. Expected outage alerts are suppressed while all
+                measurements and events continue recording.
+              </Alert>
+            )}
             {!state.usage.available && (
               <Alert
                 className="dashboard-alert"
@@ -1082,6 +1114,8 @@ export function App({ onLogout }: { onLogout: () => Promise<void> }) {
                     devices={devices}
                     status={state.status}
                     newDeviceCount={newDeviceCount}
+                    preferences={notificationPreferences}
+                    onPreferencesChange={setNotificationPreferences}
                   />
                 </Suspense>
               ) : (

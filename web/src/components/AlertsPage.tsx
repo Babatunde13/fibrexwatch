@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Badge, Button, SegmentedControl } from '@mantine/core'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Badge, Button, SegmentedControl, Switch } from '@mantine/core'
 import {
   IconAlertTriangle,
   IconBell,
@@ -8,7 +8,14 @@ import {
   IconDeviceMobile,
   IconWifiOff,
 } from '@tabler/icons-react'
-import type { CollectorEvent, Device, PlanUsage, SystemStatus } from '../types'
+import { getAlertState, saveNotificationPreferences, setAlertsRead } from '../api'
+import type {
+  CollectorEvent,
+  Device,
+  NotificationPreferences,
+  PlanUsage,
+  SystemStatus,
+} from '../types'
 
 type AlertSeverity = 'info' | 'warning' | 'critical' | 'resolved'
 type AlertFilter = 'all' | 'unread' | AlertSeverity
@@ -23,23 +30,27 @@ type AlertItem = {
   icon: typeof IconBell
 }
 
-const storageKey = 'fibrex-read-alerts'
-
 export function AlertsPage({
   events,
   plan,
   devices,
   status,
   newDeviceCount,
+  preferences,
+  onPreferencesChange,
 }: {
   events: CollectorEvent[]
   plan: PlanUsage | null
   devices: Device[]
   status: SystemStatus
   newDeviceCount: number
+  preferences: NotificationPreferences
+  onPreferencesChange: (preferences: NotificationPreferences) => void
 }) {
   const [filter, setFilter] = useState<AlertFilter>('all')
-  const [readIds, setReadIds] = useState<Set<string>>(() => readStoredIds())
+  const [readIds, setReadIds] = useState<Set<string>>(new Set())
+  const [stateError, setStateError] = useState('')
+  const [saving, setSaving] = useState(false)
   const alerts = useMemo(
     () => buildAlerts(events, plan, devices, status, newDeviceCount),
     [devices, events, newDeviceCount, plan, status],
@@ -51,16 +62,72 @@ export function AlertsPage({
     return alert.severity === filter
   })
 
-  const updateReadIds = (next: Set<string>) => {
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      void getAlertState()
+        .then((state) => {
+          if (!active) return
+          setReadIds(new Set(state.readIds))
+          onPreferencesChange(state.preferences)
+          setStateError('')
+        })
+        .catch((error: unknown) => {
+          if (active) {
+            setStateError(error instanceof Error ? error.message : 'Could not load alert state')
+          }
+        })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [onPreferencesChange])
+
+  const updateReadIds = async (next: Set<string>, changed: string[], read: boolean) => {
+    const previous = readIds
     setReadIds(next)
-    localStorage.setItem(storageKey, JSON.stringify([...next].slice(-500)))
+    setStateError('')
+    try {
+      await setAlertsRead(changed, read)
+    } catch (error) {
+      setReadIds(previous)
+      setStateError(error instanceof Error ? error.message : 'Could not save alert state')
+    }
   }
 
   const toggleRead = (id: string) => {
     const next = new Set(readIds)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    updateReadIds(next)
+    const read = !next.has(id)
+    if (read) next.add(id)
+    else next.delete(id)
+    void updateReadIds(next, [id], read)
+  }
+
+  const updatePreference = async (
+    key: 'collectorEnabled' | 'dataPlanEnabled' | 'deviceEnabled' | 'reportEnabled',
+    enabled: boolean,
+  ) => {
+    const previous = preferences
+    const next = { ...preferences, [key]: enabled }
+    onPreferencesChange(next)
+    setSaving(true)
+    setStateError('')
+    try {
+      onPreferencesChange(
+        await saveNotificationPreferences({
+          collectorEnabled: next.collectorEnabled,
+          dataPlanEnabled: next.dataPlanEnabled,
+          deviceEnabled: next.deviceEnabled,
+          reportEnabled: next.reportEnabled,
+        }),
+      )
+    } catch (error) {
+      onPreferencesChange(previous)
+      setStateError(error instanceof Error ? error.message : 'Could not save preferences')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -84,10 +151,58 @@ export function AlertsPage({
           size="sm"
           disabled={!unreadCount}
           leftSection={<IconCheck size={16} />}
-          onClick={() => updateReadIds(new Set(alerts.map((alert) => alert.id)))}
+          onClick={() => {
+            const ids = alerts.map((alert) => alert.id)
+            void updateReadIds(new Set([...readIds, ...ids]), ids, true)
+          }}
         >
           Mark all read
         </Button>
+      </div>
+
+      {stateError && (
+        <Alert
+          color="red"
+          title="Notification state unavailable"
+          icon={<IconAlertTriangle size={18} />}
+        >
+          {stateError}
+        </Alert>
+      )}
+
+      <div className="notification-preferences">
+        <div>
+          <strong>Delivery preferences</strong>
+          <span>Alert history remains available when delivery is disabled.</span>
+        </div>
+        <Switch
+          label="Collector"
+          checked={preferences.collectorEnabled}
+          disabled={saving}
+          onChange={(event) =>
+            void updatePreference('collectorEnabled', event.currentTarget.checked)
+          }
+        />
+        <Switch
+          label="Data plan"
+          checked={preferences.dataPlanEnabled}
+          disabled={saving}
+          onChange={(event) =>
+            void updatePreference('dataPlanEnabled', event.currentTarget.checked)
+          }
+        />
+        <Switch
+          label="Devices"
+          checked={preferences.deviceEnabled}
+          disabled={saving}
+          onChange={(event) => void updatePreference('deviceEnabled', event.currentTarget.checked)}
+        />
+        <Switch
+          label="Reports"
+          checked={preferences.reportEnabled}
+          disabled={saving}
+          onChange={(event) => void updatePreference('reportEnabled', event.currentTarget.checked)}
+        />
       </div>
 
       <div className="alerts-toolbar">
@@ -103,6 +218,16 @@ export function AlertsPage({
           ]}
         />
       </div>
+
+      {status.maintenance && (
+        <div className="maintenance-alert-note">
+          <IconCalendarStats size={18} />
+          <span>
+            <strong>Maintenance mode is active.</strong> Live collector outage warnings are
+            suppressed; recorded events remain visible below.
+          </span>
+        </div>
+      )}
 
       {visibleAlerts.length ? (
         <div className="alerts-list">
@@ -173,7 +298,7 @@ function buildAlerts(
     icon: event.eventType.includes('recover') ? IconCheck : IconWifiOff,
   }))
 
-  if (status.collectorState !== 'running') {
+  if (status.collectorState !== 'running' && !status.maintenance) {
     alerts.push({
       id: `collector-current-${status.collectorState}`,
       title: 'Collector needs attention',
@@ -237,14 +362,6 @@ function buildAlerts(
   return alerts.sort(
     (first, second) => Date.parse(second.occurredAt) - Date.parse(first.occurredAt),
   )
-}
-
-function readStoredIds() {
-  try {
-    return new Set<string>(JSON.parse(localStorage.getItem(storageKey) ?? '[]') as string[])
-  } catch {
-    return new Set<string>()
-  }
 }
 
 function eventLabel(eventType: string) {
